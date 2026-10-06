@@ -59,18 +59,21 @@ SC_BUILD_OUT=target/check.img SC_BUILD_OUT_TO=tmp/check.img sc-build scripts/bui
 ## Work plan
 
 - [ ] #1 virtio-net SNP driver (in progress, 2026-10-06)
-  - [ ] Scaffold: Cargo workspace (driver + `check/`), build.rs subsystem 11
+  - [x] Scaffold: Cargo workspace (driver + `check/`), build.rs subsystem 11
         for the driver bin only, console/trace from stormnic-ixgbe, PciIo,
         decode, scripts/check-driver.sh
-  - [ ] Virtio core: capability parsing, common config, feature negotiation
-        (VERSION_1 required; MAC, STATUS, ACCESS_PLATFORM accepted), split
-        virtqueues RX 0 / TX 1 (≤ 32 entries, 2 KiB buffers, 12-byte net
-        header), reset = stop
-  - [ ] SNP core (software receive filter; no control queue, so MAC is not
-        changeable) and SNP glue on a child handle with a MAC device path
-  - [ ] Host tests against a simulated virtio-net device
-  - [ ] Check app + image + `scripts/test-ovmf.sh` (QEMU/OVMF, 1041 and 1000)
-  - [ ] pve: `testhost boot` with the #310 peer (DHCP lease + ping)
+  - [x] Virtio core, SNP core and glue (7e12648)
+  - [x] Host tests: 44 pass (`sc-build scripts/test-host.sh`, 2026-10-06)
+  - [x] QEMU/OVMF (`scripts/test-ovmf.sh`, b178b65): modern 1041 and
+        transitional 1000 each take the NIC from Fedora OVMF's VirtioNetDxe,
+        lease 10.0.2.15, ping 5/5, UDP echo 1200 B. check-driver: 55,808 B,
+        subsystem 11, no warnings.
+  - [ ] pve `stormnictest1` (boot machine registered 2026-10-06 via the agent
+        token: vmid 3302, #310 net, projects [stormnic-virtio]). First run
+        (b178b65): pve's OVMF has the full network stack on VirtioNetDxe after a
+        recursive connect, and a plain DisconnectController on the PCI
+        function returned NOT_FOUND. 9717e44 disconnects the tree leaf first
+        and prints every handle that refuses; rerun pending.
   - [ ] stormbootx: issue to pin the driver and to let it take virtio NICs
-        from OVMF's VirtioNetDxe (it connects platform drivers first), then
-        pvetest1/2 boot a release through it
+        from OVMF's VirtioNetDxe (draft in tmp/stormbootx-issue.md), then
+        pvetest1/2 boot a release through it; #1 proposed after it
