@@ -104,3 +104,7 @@ NIC a modern virtio-net (1af4:1041) whose other end is stormcentral at
 In stormbootx's `\stormboot\drivers` on the rustnic media, from a pinned
 commit in `scripts/build-nic-drivers.sh`. Not a stormcentral component (no
 golden of its own).
+
+## Licence
+
+MIT (see LICENSE). NOTICE acknowledges the sources the hardware facts were learned from; no code was copied.

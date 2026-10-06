@@ -1,0 +1,8 @@
+stormnic-virtio
+===============
+
+An original Rust implementation, licensed MIT (see LICENSE).
+
+Acknowledgement: virtio-net behaviour follows the OASIS "Virtual I/O Device
+(VIRTIO) Version 1.x" specification. No source code from other virtio drivers
+was copied.
