@@ -3,7 +3,8 @@
 //! VirtioNetDxe, which claims the NIC before any media driver runs).
 //!
 //! 1. Find the virtio-net PCI functions (1af4:1041 or 1af4:1000).
-//! 2. Take the first one from whatever drives it: DisconnectController.
+//! 2. Connect it with the firmware's drivers (stormbootx's first pass), then
+//!    take it from whatever drives it: DisconnectController.
 //! 3. Load `\stormboot\drivers\stormnic-virtio.efi` from the volume this app
 //!    booted from, start it, and ConnectController the function with that
 //!    driver named, so ours binds it.
@@ -249,11 +250,16 @@ fn run(out: &mut Option<Net>) -> Result<String, String> {
     }
     let (ctrl, device, loc) = found.ok_or("no virtio-net PCI function (1af4:1041 or 1af4:1000)")?;
 
-    // 2. Take it from its driver.
+    // 2. Let the firmware's drivers bind it first, as stormbootx's first
+    //    ConnectController pass does (OVMF connects only boot devices), then
+    //    take it from them.
+    // SAFETY: connect the function with whatever drivers the firmware has.
+    let st = unsafe { (bs().connect_controller)(ctrl.as_ptr(), ptr::null_mut(), ptr::null_mut(), Boolean::TRUE) };
+    println!("check: {loc}: ConnectController with the firmware's drivers: {st:?}");
     let holders = open_info(ctrl, &PciIo::GUID).iter().filter(|e| e.2 & BY_DRIVER != 0).count();
     // SAFETY: disconnect every driver from the function; its children go first.
     let st = unsafe { (bs().disconnect_controller)(ctrl.as_ptr(), ptr::null_mut(), ptr::null_mut()) };
-    println!("check: {loc}: {holders} driver(s) held it; DisconnectController: {st:?}");
+    println!("check: {loc}: held BY_DRIVER by {holders} firmware driver(s); DisconnectController: {st:?}");
     if holders > 0 && st.is_error() {
         return Err(format!("{loc}: could not disconnect the firmware's driver: {st:?}"));
     }

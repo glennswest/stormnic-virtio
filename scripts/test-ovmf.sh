@@ -10,8 +10,9 @@
 #   transitional  virtio-net-pci,disable-legacy=off  -> 1af4:1000 with the
 #                                                       virtio 1.x capabilities
 #
-# Fedora's OVMF carries VirtioNetDxe, which binds the NIC at boot: the check
-# app has to take it from that driver and bind ours (check/src/main.rs).
+# Fedora's OVMF carries VirtioNetDxe: the check app connects it to the NIC
+# first (as stormbootx's first ConnectController pass does), then has to take
+# the NIC from it and bind ours (check/src/main.rs).
 # slirp leases 10.0.2.15 and answers pings to its 10.0.2.2; the UDP echo
 # goes to a python echo server on the build box's loopback, which slirp
 # reaches as 10.0.2.2. Each boot must print `STORMNIC-VIRTIO CHECK PASS`
@@ -64,6 +65,9 @@ boot() {
         -serial file:"$log" -monitor none -display none </dev/null >/dev/null 2>&1 || true
     sed -e 's/\x1b\[[0-9;]*[A-Za-z]//g' "$log" | tr -d '\r' | grep -E '^(stormnic-virtio|check:|STORMNIC-VIRTIO)' || true
     grep -q 'STORMNIC-VIRTIO CHECK PASS' "$log" || die "$name: no PASS line"
+    # OVMF's VirtioNetDxe held it and had to be disconnected.
+    grep -Eq 'held BY_DRIVER by [1-9][0-9]* firmware driver\(s\); DisconnectController: SUCCESS' "$log" \
+        || die "$name: the firmware's driver did not hold the NIC, so the takeover was not tested"
     grep -q "stormnic-virtio [0-9.]*: .*1af4:$3 .*SNP installed" "$log" || die "$name: no driver line for 1af4:$3"
     say "$name: PASS"
 }

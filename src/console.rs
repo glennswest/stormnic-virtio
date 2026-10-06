@@ -87,6 +87,7 @@ pub fn replay() {
 macro_rules! say { ($($t:tt)*) => { uefi::println!($($t)*) } }
 macro_rules! trace { ($($t:tt)*) => { $crate::console::trace_line(format_args!($($t)*)) } }
 macro_rules! fail { ($($t:tt)*) => {{ $crate::console::replay(); uefi::println!($($t)*); }} }
+#[allow(unused_macros)]
 macro_rules! note {
     ($warn:expr, $($t:tt)*) => { if $warn { say!($($t)*) } else { trace!($($t)*) } }
 }

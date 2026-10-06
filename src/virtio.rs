@@ -18,6 +18,8 @@ pub const VENDOR: u16 = 0x1af4;
 pub enum Region {
     Common,
     Notify,
+    /// Not used: the driver polls.
+    #[allow(dead_code)]
     Isr,
     Device,
 }
