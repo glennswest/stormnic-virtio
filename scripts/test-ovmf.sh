@@ -66,7 +66,7 @@ boot() {
     sed -e 's/\x1b\[[0-9;]*[A-Za-z]//g' "$log" | tr -d '\r' | grep -E '^(stormnic-virtio|check:|STORMNIC-VIRTIO)' || true
     grep -q 'STORMNIC-VIRTIO CHECK PASS' "$log" || die "$name: no PASS line"
     # OVMF's VirtioNetDxe held it and had to be disconnected.
-    grep -Eq 'held BY_DRIVER by [1-9][0-9]* firmware driver\(s\); DisconnectController: SUCCESS' "$log" \
+    grep -q 'firmware driver(s) disconnected' "$log" \
         || die "$name: the firmware's driver did not hold the NIC, so the takeover was not tested"
     grep -q "stormnic-virtio [0-9.]*: .*1af4:$3 .*SNP installed" "$log" || die "$name: no driver line for 1af4:$3"
     say "$name: PASS"

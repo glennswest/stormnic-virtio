@@ -4,7 +4,8 @@
 //!
 //! 1. Find the virtio-net PCI functions (1af4:1041 or 1af4:1000).
 //! 2. Connect it with the firmware's drivers (stormbootx's first pass), then
-//!    take it from whatever drives it: DisconnectController.
+//!    take it from whatever drives it: DisconnectController on its driver
+//!    tree, children first (pve's OVMF stacks MNP/IP4/PXE/HTTP boot on it).
 //! 3. Load `\stormboot\drivers\stormnic-virtio.efi` from the volume this app
 //!    booted from, start it, and ConnectController the function with that
 //!    driver named, so ours binds it.
@@ -86,6 +87,55 @@ fn open_info(handle: Handle, guid: &uefi::Guid) -> Vec<(uefi_raw::Handle, uefi_r
         let v = core::slice::from_raw_parts(buf, n).iter().map(|e| (e.agent, e.controller, e.attributes)).collect();
         let _ = (bs().free_pool)(buf as *mut _);
         v
+    }
+}
+
+/// The protocols installed on `handle`.
+fn protocols(handle: uefi_raw::Handle) -> Vec<uefi::Guid> {
+    let mut buf: *mut *const uefi::Guid = ptr::null_mut();
+    let mut n = 0usize;
+    // SAFETY: the firmware fills a pool array of `n` GUID pointers, freed below.
+    unsafe {
+        let f: unsafe extern "efiapi" fn(uefi_raw::Handle, *mut *mut *const uefi::Guid, *mut usize) -> Status =
+            core::mem::transmute(bs().protocols_per_handle);
+        if f(handle, &mut buf, &mut n).is_error() || buf.is_null() {
+            return Vec::new();
+        }
+        let v = core::slice::from_raw_parts(buf, n).iter().map(|g| **g).collect();
+        let _ = (bs().free_pool)(buf as *mut _);
+        v
+    }
+}
+
+/// Handles opened BY_CHILD_CONTROLLER on any protocol of `handle`: its
+/// children in the driver tree.
+fn children(handle: uefi_raw::Handle) -> Vec<uefi_raw::Handle> {
+    let mut out: Vec<uefi_raw::Handle> = Vec::new();
+    for g in protocols(handle) {
+        // SAFETY: a live handle from the firmware.
+        let h = unsafe { Handle::from_ptr(handle) }.expect("handle");
+        for e in open_info(h, &g) {
+            if e.2 & BY_CHILD_CONTROLLER != 0 && e.1 != handle && !out.contains(&e.1) {
+                out.push(e.1);
+            }
+        }
+    }
+    out
+}
+
+/// Disconnect the drivers on `handle`'s subtree, children first; print each
+/// handle that refuses, with its protocols.
+fn disconnect_tree(handle: uefi_raw::Handle, depth: usize, failed: &mut usize) {
+    if depth > 8 { return; }
+    for c in children(handle) {
+        disconnect_tree(c, depth + 1, failed);
+    }
+    // SAFETY: disconnect every driver from a live handle.
+    let st = unsafe { (bs().disconnect_controller)(handle, ptr::null_mut(), ptr::null_mut()) };
+    if st.is_error() {
+        *failed += 1;
+        let guids: Vec<String> = protocols(handle).iter().map(|g| format!("{g}")).collect();
+        println!("check:   depth {depth} handle {handle:p}: DisconnectController {st:?}; protocols {}", guids.join(" "));
     }
 }
 
@@ -256,12 +306,23 @@ fn run(out: &mut Option<Net>) -> Result<String, String> {
     // SAFETY: connect the function with whatever drivers the firmware has.
     let st = unsafe { (bs().connect_controller)(ctrl.as_ptr(), ptr::null_mut(), ptr::null_mut(), Boolean::TRUE) };
     println!("check: {loc}: ConnectController with the firmware's drivers: {st:?}");
-    let holders = open_info(ctrl, &PciIo::GUID).iter().filter(|e| e.2 & BY_DRIVER != 0).count();
-    // SAFETY: disconnect every driver from the function; its children go first.
-    let st = unsafe { (bs().disconnect_controller)(ctrl.as_ptr(), ptr::null_mut(), ptr::null_mut()) };
-    println!("check: {loc}: held BY_DRIVER by {holders} firmware driver(s); DisconnectController: {st:?}");
-    if holders > 0 && st.is_error() {
-        return Err(format!("{loc}: could not disconnect the firmware's driver: {st:?}"));
+    let held = |c: Handle| open_info(c, &PciIo::GUID).iter().filter(|e| e.2 & BY_DRIVER != 0).count();
+    let holders = held(ctrl);
+    println!("check: {loc}: held BY_DRIVER by {holders} firmware driver(s); {} handle(s) below it", children(ctrl.as_ptr()).len());
+    // Leaf first: a network stack bound recursively (MNP, IP4, PXE, HTTP
+    // boot, …) is taken down from the top, in up to three passes.
+    let mut pass = 0;
+    while held(ctrl) > 0 && pass < 3 {
+        pass += 1;
+        let mut failed = 0;
+        disconnect_tree(ctrl.as_ptr(), 0, &mut failed);
+        println!("check: {loc}: disconnect pass {pass}: {failed} handle(s) refused, {} driver(s) still hold it", held(ctrl));
+    }
+    if holders > 0 {
+        println!("check: {loc}: firmware driver(s) {}", if held(ctrl) == 0 { "disconnected" } else { "still bound" });
+    }
+    if held(ctrl) > 0 {
+        return Err(format!("{loc}: could not disconnect the firmware's driver"));
     }
 
     // 3. Load and start our driver, then connect the function with it named.
