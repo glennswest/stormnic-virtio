@@ -1,0 +1,32 @@
+[package]
+name = "stormnic-virtio"
+description = "Rust no_std UEFI EFI_SIMPLE_NETWORK driver for virtio-net (virtio 1.x PCI), loaded by stormbootx from its boot media"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+
+[[bin]]
+name = "stormnic-virtio"
+path = "src/main.rs"
+
+[features]
+# Print the whole bring-up trace on the console at every boot. Without it the
+# trace is printed only when the EFI variable StormnicVerbose is set
+# (src/console.rs).
+verbose = []
+
+[dependencies]
+uefi = { version = "0.39", features = ["alloc", "global_allocator", "panic_handler", "logger"] }
+uefi-raw = "0.15"
+
+# The check app (check/): an EFI application that binds this driver under
+# OVMF and runs DHCP and ping over its SNP. `cargo build` at the root builds
+# only the driver.
+[workspace]
+members = ["check"]
+
+[profile.release]
+opt-level = "z"
+lto = true
+panic = "abort"
+strip = true

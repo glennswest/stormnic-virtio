@@ -1,0 +1,16 @@
+[package]
+name = "stormnic-virtio-check"
+description = "EFI application: binds stormnic-virtio to the virtio-net NIC (taking it from the firmware's driver) and runs DHCP, ping and UDP echo over its SNP"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+publish = false
+
+[[bin]]
+name = "stormnic-virtio-check"
+path = "src/main.rs"
+
+[dependencies]
+uefi = { version = "0.39", features = ["alloc", "global_allocator", "panic_handler", "logger"] }
+uefi-raw = "0.15"
+smoltcp = { version = "0.14", default-features = false, features = ["alloc", "medium-ethernet", "proto-ipv4", "socket-udp", "socket-icmp", "socket-dhcpv4"] }
