@@ -246,7 +246,7 @@ fn main() -> Status {
         Err(e) => println!("{FAIL}: {e}"),
     }
     if let Some(n) = net.as_mut() {
-        n.serve(15_000);
+        n.serve_loud(15_000);
         println!("check: done; {} frames in, {} out, {} ping request(s) to us answered", n.dev.frames_in, n.dev.frames_out, n.dev.pings_in);
     }
     boot::stall(Duration::from_millis(500));
@@ -268,6 +268,14 @@ impl Net {
     fn serve(&mut self, ms: i64) {
         let end = self.clock.0 + ms;
         while self.clock.0 < end { self.poll(); }
+    }
+    /// `serve`, printing the counts every 3 s.
+    fn serve_loud(&mut self, ms: i64) {
+        let end = self.clock.0 + ms;
+        while self.clock.0 < end {
+            self.serve(3000.min(end - self.clock.0));
+            println!("check: serving: {} frames in, {} out, {} ping request(s) to us", self.dev.frames_in, self.dev.frames_out, self.dev.pings_in);
+        }
     }
 }
 
