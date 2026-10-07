@@ -9,6 +9,7 @@
 #   modern        virtio-net-pci,disable-legacy=on   -> 1af4:1041
 #   transitional  virtio-net-pci,disable-legacy=off  -> 1af4:1000 with the
 #                                                       virtio 1.x capabilities
+#   modern-ipxe   1041 with QEMU's iPXE option ROM (efi-virtio.rom), as pve has
 #
 # Fedora's OVMF carries VirtioNetDxe: the check app connects it to the NIC
 # first (as stormbootx's first ConnectController pass does), then has to take
@@ -54,14 +55,14 @@ CHECK_CONF="udp_port=$PORT" scripts/build-image.sh "$W/check.img"
 accel=tcg
 [[ -w /dev/kvm ]] && accel=kvm
 boot() {
-    local name=$1 legacy=$2 log="$W/$1.log"
+    local name=$1 legacy=$2 rom=${4-} log="$W/$1.log"
     cp "$OVMF_VARS" "$W/vars.fd"
     say "boot $name (disable-legacy=$legacy, $accel)"
     timeout "$LIMIT" qemu-system-x86_64 -machine q35,accel="$accel" -m 512 -no-reboot \
         -drive if=pflash,format=raw,readonly=on,file="$OVMF_CODE" \
         -drive if=pflash,format=raw,file="$W/vars.fd" \
         -drive file="$W/check.img",format=raw,if=none,id=disk -device virtio-blk-pci,drive=disk,bootindex=1 \
-        -netdev user,id=n0 -device virtio-net-pci,netdev=n0,disable-legacy="$legacy",disable-modern=off,romfile= \
+        -netdev user,id=n0 -device virtio-net-pci,netdev=n0,disable-legacy="$legacy",disable-modern=off,romfile="$rom" \
         -serial file:"$log" -monitor none -display none </dev/null >/dev/null 2>&1 || true
     sed -e 's/\x1b\[[0-9;]*[A-Za-z]//g' "$log" | tr -d '\r' | grep -E '^(stormnic-virtio|check:|STORMNIC-VIRTIO)' || true
     grep -q 'STORMNIC-VIRTIO CHECK PASS' "$log" || die "$name: no PASS line"
@@ -73,4 +74,13 @@ boot() {
 }
 boot modern on 1041
 boot transitional off 1000
+# QEMU's iPXE EFI option ROM on the NIC, as on pve: iPXE opens PciIo
+# EXCLUSIVE when ConnectController tries it after ours, which forced the
+# driver off before Start held PciIo EXCLUSIVE itself.
+ROM=$(ls /usr/share/qemu/efi-virtio.rom /usr/share/ipxe/qemu/efi-virtio.rom 2>/dev/null | head -1 || true)
+if [[ -n "$ROM" ]]; then
+    boot modern-ipxe on 1041 "$ROM"
+else
+    say "no efi-virtio.rom on this box: the iPXE boot is skipped"
+fi
 say "all boots passed"
