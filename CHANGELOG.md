@@ -3,6 +3,8 @@
 ## [Unreleased]
 
 ### 2026-10-07
+- **test:** verified on pve `stormnictest1` under stormbootx v0.23.0's rustnic medium (run 8935d0a1dd): taken from pve OVMF's driver, SNP installed, leased 10.77.0.10
+- **docs:** README Shipping: pinned in stormbootx v0.23.0 (stormbootx#75) and taken from the firmware on the rustnic media (stormbootx#108); how to boot that medium on pve
 - **test:** `scripts/build-stormbootx-image.sh`: stormbootx's rustnic disk medium at a stormbootx ref (default v0.23.0, which pins this driver), built with stormbootx's own golden recipe, for a `testhost boot` under pve's OVMF (#1)
 - **docs:** refreshed from the code: README Shipping now says the driver is not yet pinned in stormbootx's `build-nic-drivers.sh` (ixgbe and mlx4 only; pin offered on stormbootx#75, takeover on stormbootx#108); everything else checked against the code (IDs, features, queue/DMA sizes, console line, check app, 44 host tests)
 - **fix:** check app: smoltcp `auto-icmp-echo-reply` (the peer's pings went unanswered with default features off); finds its SNP by code address if OpenProtocolInformation does not show the child; prints the PciIo opens

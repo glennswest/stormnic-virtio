@@ -82,10 +82,15 @@ SC_BUILD_OUT=target/check.img SC_BUILD_OUT_TO=tmp/check.img sc-build scripts/bui
         pins 1a04808 and takes virtio NICs on the rustnic media
         (`prefer_media_drivers = virtio`); golden
         `golden-stormbootx-rustnic-4c485750874d219a`.
-  - [ ] stormbootx's rustnic disk (v0.23.0, `scripts/build-stormbootx-image.sh`)
-        under pve's OVMF on `stormnictest1`: the takeover from VirtioNetDxe
-        with the iPXE ROM and the NOT_FOUND disconnect (not run by #108).
-        In progress 2026-10-07.
+  - [x] stormbootx's rustnic disk (v0.23.0, `scripts/build-stormbootx-image.sh`,
+        7c03487) under pve's OVMF on `stormnictest1`: **passed**, run
+        8935d0a1dd (2026-10-07): `1af4:1041: taken from 1af41000.efidrv;
+        stormnic-virtio.efi drives it`, SNP installed, stormbootx leased
+        10.77.0.10 and went on to the portal (192.168.31.202, not on the
+        #310 net). The peer's pings go unanswered: stormbootx's smoltcp
+        answers no ICMP (the check app did, 9/9), not the driver.
   - [ ] pvetest1/2 boot a release through stormbootx-rustnic 4c485750: a
         test machine booted on an unpromoted golden is the master's to do
-        (as stormbootx#107); asked on #1.
+        (as stormbootx#107). Asked on #1 (needs-owner, 2026-10-07): the
+        master boots pvetest1/2 on it, or the owner takes run 8935d0a1dd as
+        the pve check and #1 closes.

@@ -6,7 +6,7 @@ A Rust `no_std` UEFI driver that gives firmware an
 on pve VMs and QEMU without iPXE or the firmware's driver. A sibling of
 stormnic-ixgbe and stormnic-mlx4, to be built and pinned the same way:
 stormbootx's `scripts/build-nic-drivers.sh` → the nic-drivers golden and the
-rustnic media (stormbootx#75; not pinned yet, see Shipping).
+rustnic media (stormbootx#75, pinned in v0.23.0; see Shipping).
 
 Written from the OASIS virtio specification (1.x: PCI transport 4.1, split
 virtqueues 2.7, network device 5.1) and the UEFI specification. MIT.
@@ -114,13 +114,23 @@ NIC a modern virtio-net (1af4:1041) whose other end is stormcentral at
 
 ## Shipping
 
-To ship in stormbootx's `\stormboot\drivers` on the rustnic media, from a
+Ships in stormbootx's `\stormboot\drivers` on the rustnic media, from a
 pinned commit in stormbootx's `scripts/build-nic-drivers.sh`, like
-stormnic-ixgbe and stormnic-mlx4. **Not there yet** (2026-10-07): that
-script builds `ixgbe` and `mlx4` only. The pin is offered on stormbootx#75
-(1a04808), and stormbootx#108 makes stormbootx take a virtio NIC from OVMF's
-VirtioNetDxe, as the check app does. Until both land, the check image
-(`scripts/build-image.sh`) is the only way this driver gets loaded.
+stormnic-ixgbe and stormnic-mlx4: stormbootx v0.23.0 pins 1a04808
+(stormbootx#75) and, with `prefer_media_drivers = virtio` on the rustnic
+media, takes each virtio-net function from the firmware's driver and
+connects this one (stormbootx#108). The fw media keep OVMF's driver.
+
+`scripts/build-stormbootx-image.sh` builds that rustnic disk medium at a
+stormbootx ref (default v0.23.0) with stormbootx's own golden recipe, for a
+`testhost boot` on pve:
+
+```bash
+SC_BUILD_OUT=target/stormbootx-rustnic.img SC_BUILD_OUT_TO=tmp/stormbootx-rustnic.img \
+  sc-build scripts/build-stormbootx-image.sh
+stormcentral testhost boot stormnictest1 --image tmp/stormbootx-rustnic.img \
+  --expect 'nic 0: leased ' --fail 'would not let go' --timeout 180
+```
 
 Not a stormcentral component (no golden of its own): a new driver commit
 reaches a release only through a new stormbootx pin.
