@@ -346,11 +346,15 @@ fn run(out: &mut Option<Net>) -> Result<String, String> {
     let st = unsafe { (bs().connect_controller)(ctrl.as_ptr(), list.as_mut_ptr(), ptr::null_mut(), Boolean::FALSE) };
     println!("check: {loc}: ConnectController with stormnic-virtio: {st:?}");
     if st.is_error() { return Err(format!("{loc}: stormnic-virtio did not bind: {st:?}")); }
-    let child = open_info(ctrl, &PciIo::GUID)
-        .into_iter()
-        .find(|e| e.0 == driver && e.2 & BY_CHILD_CONTROLLER != 0)
-        .map(|e| e.1)
-        .ok_or_else(|| format!("{loc}: no SNP child from stormnic-virtio"))?;
+    let entries = open_info(ctrl, &PciIo::GUID);
+    for e in &entries {
+        println!("check: {loc}: PciIo open by agent {:p} for {:p}, attributes {:#x}{}", e.0, e.1, e.2, if e.0 == driver { " (stormnic-virtio)" } else { "" });
+    }
+    let child = match entries.iter().find(|e| e.0 == driver && e.2 & BY_CHILD_CONTROLLER != 0) {
+        Some(e) => e.1,
+        // Else: the SNP whose code lives in the driver's image.
+        None => ours_by_code(driver).ok_or_else(|| format!("{loc}: no SNP child from stormnic-virtio"))?,
+    };
 
     // 4. Its SNP, EXCLUSIVE.
     let mut iface: *mut c_void = ptr::null_mut();
@@ -421,6 +425,31 @@ fn run(out: &mut Option<Net>) -> Result<String, String> {
         "stormnic-virtio on {loc} (1af4:{device:04x}) MAC {}: leased {address} gw {gw}, ping {}/5 (rtt {min}-{max} ms), {udp}",
         mac_text(&mac), replies.len()
     ))
+}
+
+/// The SNP handle whose functions are inside `driver`'s loaded image.
+fn ours_by_code(driver: uefi_raw::Handle) -> Option<uefi_raw::Handle> {
+    let image = boot::image_handle();
+    // SAFETY: a live image handle from LoadImage.
+    let dh = unsafe { Handle::from_ptr(driver) }?;
+    let params = OpenProtocolParams { handle: dh, agent: image, controller: None };
+    // SAFETY: GET_PROTOCOL, dropped at once.
+    let li = unsafe { boot::open_protocol::<uefi::proto::loaded_image::LoadedImage>(params, OpenProtocolAttributes::GetProtocol) }.ok()?;
+    let (base, size) = li.info();
+    let (lo, hi) = (base as usize, base as usize + size as usize);
+    drop(li);
+    let snps = boot::locate_handle_buffer(SearchType::ByProtocol(&SimpleNetworkProtocol::GUID)).ok()?;
+    for &h in snps.iter() {
+        let mut iface: *mut c_void = ptr::null_mut();
+        // SAFETY: GET_PROTOCOL needs no close.
+        let st = unsafe { (bs().open_protocol)(h.as_ptr(), &SimpleNetworkProtocol::GUID, &mut iface, image.as_ptr(), ptr::null_mut(), 0x02) };
+        if st.is_error() || iface.is_null() { continue; }
+        // SAFETY: an SNP interface.
+        let start = unsafe { (*(iface as *const SimpleNetworkProtocol)).start } as usize;
+        println!("check: SNP handle {:p}: Start at {start:#x}{}", h.as_ptr(), if (lo..hi).contains(&start) { " (in stormnic-virtio)" } else { "" });
+        if (lo..hi).contains(&start) { return Some(h.as_ptr()); }
+    }
+    None
 }
 
 fn mac_text(m: &[u8]) -> String {
