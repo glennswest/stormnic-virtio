@@ -4,7 +4,7 @@ A Rust `no_std` UEFI driver that gives firmware an
 `EFI_SIMPLE_NETWORK_PROTOCOL` (SNP) for **virtio-net** over the modern
 (virtio 1.x) PCI transport, so stormbootx can run its own TCP/IP (smoltcp)
 on pve VMs and QEMU without iPXE or the firmware's driver. A sibling of
-stormnic-ixgbe and stormnic-mlx4, to be built and pinned the same way:
+stormnic-ixgbe and stormnic-mlx4, built and pinned the same way:
 stormbootx's `scripts/build-nic-drivers.sh` → the nic-drivers golden and the
 rustnic media (stormbootx#75, pinned in v0.23.0; see Shipping).
 
