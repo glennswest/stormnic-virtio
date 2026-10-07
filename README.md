@@ -26,7 +26,10 @@ this driver named. The check app (below) does exactly that.
 
 ## How it works
 
-- **Start**: PciIo `BY_DRIVER`; memory decode and bus mastering
+- **Start**: PciIo `BY_DRIVER | EXCLUSIVE` (Supported has already declined a
+  function another driver holds; EXCLUSIVE keeps a later driver — QEMU's
+  iPXE option ROM on a pve virtio NIC opens PciIo EXCLUSIVE — from forcing
+  ours off when ConnectController goes on to try it); memory decode and bus mastering
   (`src/decode.rs`, from stormnic-ixgbe); the virtio capabilities from the
   PCI capability list (common, notify, device configuration; any BAR, any
   offset); feature negotiation (spec 3.1.1): `VIRTIO_F_VERSION_1` and

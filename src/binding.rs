@@ -8,7 +8,7 @@
 //! already owns the NIC (OVMF's VirtioNetDxe, through its Virtio10Dxe) holds
 //! that open, so ours fails and the platform's driver wins.
 //!
-//! Start holds `EFI_PCI_IO_PROTOCOL` BY_DRIVER, enables memory decode and
+//! Start holds `EFI_PCI_IO_PROTOCOL` BY_DRIVER | EXCLUSIVE (`Held`), enables memory decode and
 //! bus mastering (`decode`), negotiates with the device and reads its MAC
 //! and link (`virtio::identify`), maps one DMA region for both queues and
 //! their buffers, starts the queues for the DMA check and resets the device
@@ -27,7 +27,7 @@ use core::time::Duration;
 use uefi::boot::{self, OpenProtocolAttributes, OpenProtocolParams, ScopedProtocol};
 use uefi::mem::memory_map::MemoryType;
 use uefi::proto::loaded_image::LoadedImage;
-use uefi::{Handle, Result, Status};
+use uefi::{Handle, Identify, Result, Status};
 use uefi_raw::protocol::device_path::DevicePathProtocol;
 use uefi_raw::protocol::driver::DriverBindingProtocol;
 
@@ -89,8 +89,8 @@ struct Bound {
     dma: DmaRegion,
     /// The SNP, its child handle and the queues (`snp::create`).
     port: *mut snp::Port,
-    /// The BY_DRIVER open; dropping it closes the protocol.
-    pci: ScopedProtocol<PciIo>,
+    /// The BY_DRIVER | EXCLUSIVE open; dropping it closes the protocol.
+    pci: Held,
 }
 
 /// `net::DMA_PAGES` from AllocateBuffer, mapped as one common buffer.
@@ -150,6 +150,53 @@ fn ident(pci: &PciIo) -> Result<Ident> {
     let id = pci.config_read_u32(0x00)?;
     let class = pci.config_read_u32(0x08)?;
     Ok(Ident { vendor: id as u16, device: (id >> 16) as u16, class: (class >> 24) as u8 })
+}
+
+/// `EFI_OPEN_PROTOCOL_BY_DRIVER | EFI_OPEN_PROTOCOL_EXCLUSIVE`.
+const BY_DRIVER_EXCLUSIVE: u32 = 0x30;
+
+/// Start's PciIo open, BY_DRIVER | EXCLUSIVE, closed on drop.
+///
+/// EXCLUSIVE because ConnectController goes on trying the other drivers
+/// after ours has started, and one that opens PciIo EXCLUSIVE itself (QEMU's
+/// iPXE option ROM on a pve virtio NIC) would otherwise force ours off the
+/// function (#1, the second pve run). It never displaces a driver already
+/// there: Supported declines any function held BY_DRIVER.
+pub struct Held {
+    iface: *const PciIo,
+    agent: Handle,
+    controller: Handle,
+}
+
+impl core::ops::Deref for Held {
+    type Target = PciIo;
+    fn deref(&self) -> &PciIo {
+        // SAFETY: the open interface, valid until `drop` closes it (the
+        // firmware calls Stop before it would remove it).
+        unsafe { &*self.iface }
+    }
+}
+
+impl Drop for Held {
+    fn drop(&mut self) {
+        // SAFETY: closes the open made in `hold`.
+        let _ = unsafe {
+            (crate::snp::bs().close_protocol)(self.controller.as_ptr(), &PciIo::GUID, self.agent.as_ptr(), self.controller.as_ptr())
+        };
+    }
+}
+
+fn hold(agent: Handle, controller: Handle) -> Result<Held> {
+    let mut iface: *mut c_void = core::ptr::null_mut();
+    // SAFETY: an open tracked by the firmware, closed by Held's drop.
+    let st = unsafe {
+        (crate::snp::bs().open_protocol)(controller.as_ptr(), &PciIo::GUID, &mut iface, agent.as_ptr(),
+            controller.as_ptr(), BY_DRIVER_EXCLUSIVE)
+    };
+    if st.is_error() || iface.is_null() {
+        return Err(if st.is_error() { st } else { Status::DEVICE_ERROR }.into());
+    }
+    Ok(Held { iface: iface as *const PciIo, agent, controller })
 }
 
 fn open(agent: Handle, controller: Handle, attrs: OpenProtocolAttributes) -> Result<ScopedProtocol<PciIo>> {
@@ -255,10 +302,10 @@ impl VirtioDriver {
         console::begin();
         let (nic, location, caps) = self.ours(agent, controller)?;
         let (at, dev) = (at(location), nic.device);
-        let pci = match open(agent, controller, OpenProtocolAttributes::ByDriver) {
+        let pci = match hold(agent, controller) {
             Ok(pci) => pci,
             Err(e) => {
-                fail!("stormnic-virtio: {at} 1af4:{dev:04x}: Start could not open PciIo BY_DRIVER: {:?}", e.status());
+                fail!("stormnic-virtio: {at} 1af4:{dev:04x}: Start could not open PciIo BY_DRIVER | EXCLUSIVE: {:?}", e.status());
                 return Err(e);
             }
         };
