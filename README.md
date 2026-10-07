@@ -97,6 +97,16 @@ a 1200-byte UDP echo to the router's port 7 (`udp_port=` in
 `STORMNIC-VIRTIO CHECK PASS: …` or `… FAIL: …`, answers pings for 15 s
 more and powers off.
 
+Verified (2026-10-07, 17874cf): `scripts/test-ovmf.sh` passes three boots
+(modern, transitional, modern with QEMU's iPXE ROM), each taking the NIC
+from Fedora OVMF's VirtioNetDxe; on pve, run `80115f800a` passed with
+`--ping` (lease, ping 5/5, UDP echo, the peer's pings answered 9/9) after
+taking the NIC from pve OVMF's VirtioNetDxe and its network stack.
+
+On pve's OVMF, `DisconnectController` on the function returns `NOT_FOUND`
+even when every driver came off: the check app judges by the BY_DRIVER
+opens left, and takes the tree down leaf first.
+
 **pve**: `stormnictest1` is a `boot` machine (stormcentral #307) for this
 project with the #310 private network: a fresh q35/OVMF VM per run, its
 NIC a modern virtio-net (1af4:1041) whose other end is stormcentral at

@@ -68,12 +68,16 @@ SC_BUILD_OUT=target/check.img SC_BUILD_OUT_TO=tmp/check.img sc-build scripts/bui
         transitional 1000 each take the NIC from Fedora OVMF's VirtioNetDxe,
         lease 10.0.2.15, ping 5/5, UDP echo 1200 B. check-driver: 55,808 B,
         subsystem 11, no warnings.
-  - [ ] pve `stormnictest1` (boot machine registered 2026-10-06 via the agent
-        token: vmid 3302, #310 net, projects [stormnic-virtio]). First run
-        (b178b65): pve's OVMF has the full network stack on VirtioNetDxe after a
-        recursive connect, and a plain DisconnectController on the PCI
-        function returned NOT_FOUND. 9717e44 disconnects the tree leaf first
-        and prints every handle that refuses; rerun pending.
+  - [x] pve `stormnictest1` (boot machine registered 2026-10-06 via the agent
+        token: vmid 3302, #310 net, projects [stormnic-virtio]): **passed**,
+        run 80115f800a at 17874cf (2026-10-07): lease 10.77.0.10, ping 5/5,
+        UDP echo 1200 B, peer pings 9/9 answered. What the failed runs
+        taught (3c89257aeb … 99e2be17a1): pve's OVMF puts its full network
+        stack on VirtioNetDxe, and DisconnectController returns NOT_FOUND
+        even when it worked (judge by the BY_DRIVER opens left); the NIC's
+        iPXE option ROM opens PciIo EXCLUSIVE when ConnectController tries it
+        after ours, so Start holds PciIo BY_DRIVER | EXCLUSIVE (9f90b8e);
+        smoltcp needs `auto-icmp-echo-reply` with default features off.
   - [ ] stormbootx: issue to pin the driver and to let it take virtio NICs
         from OVMF's VirtioNetDxe (draft in tmp/stormbootx-issue.md), then
         pvetest1/2 boot a release through it; #1 proposed after it
