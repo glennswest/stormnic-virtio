@@ -4,9 +4,9 @@ A Rust `no_std` UEFI driver that gives firmware an
 `EFI_SIMPLE_NETWORK_PROTOCOL` (SNP) for **virtio-net** over the modern
 (virtio 1.x) PCI transport, so stormbootx can run its own TCP/IP (smoltcp)
 on pve VMs and QEMU without iPXE or the firmware's driver. A sibling of
-stormnic-ixgbe and stormnic-mlx4, built and pinned the same way: stormbootx's
-`scripts/build-nic-drivers.sh` → the nic-drivers golden and the rustnic
-media (stormbootx#75).
+stormnic-ixgbe and stormnic-mlx4, to be built and pinned the same way:
+stormbootx's `scripts/build-nic-drivers.sh` → the nic-drivers golden and the
+rustnic media (stormbootx#75; not pinned yet, see Shipping).
 
 Written from the OASIS virtio specification (1.x: PCI transport 4.1, split
 virtqueues 2.7, network device 5.1) and the UEFI specification. MIT.
@@ -114,9 +114,16 @@ NIC a modern virtio-net (1af4:1041) whose other end is stormcentral at
 
 ## Shipping
 
-In stormbootx's `\stormboot\drivers` on the rustnic media, from a pinned
-commit in `scripts/build-nic-drivers.sh`. Not a stormcentral component (no
-golden of its own).
+To ship in stormbootx's `\stormboot\drivers` on the rustnic media, from a
+pinned commit in stormbootx's `scripts/build-nic-drivers.sh`, like
+stormnic-ixgbe and stormnic-mlx4. **Not there yet** (2026-10-07): that
+script builds `ixgbe` and `mlx4` only. The pin is offered on stormbootx#75
+(1a04808), and stormbootx#108 makes stormbootx take a virtio NIC from OVMF's
+VirtioNetDxe, as the check app does. Until both land, the check image
+(`scripts/build-image.sh`) is the only way this driver gets loaded.
+
+Not a stormcentral component (no golden of its own): a new driver commit
+reaches a release only through a new stormbootx pin.
 
 ## Licence
 
