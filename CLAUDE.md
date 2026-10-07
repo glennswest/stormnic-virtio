@@ -78,8 +78,14 @@ SC_BUILD_OUT=target/check.img SC_BUILD_OUT_TO=tmp/check.img sc-build scripts/bui
         iPXE option ROM opens PciIo EXCLUSIVE when ConnectController tries it
         after ours, so Start holds PciIo BY_DRIVER | EXCLUSIVE (9f90b8e);
         smoltcp needs `auto-icmp-echo-reply` with default features off.
-  - [ ] pvetest1/2 boot a release through stormbootx: **waiting on
-        stormbootx#108** (hand virtio NICs from OVMF's VirtioNetDxe to this
-        driver; filed 2026-10-07) and the pin on stormbootx#75 (1a04808
-        offered). #1 proposed after stormbootx#108; it stays open until the
-        pvetest boot.
+  - [x] stormbootx#108 and the #75 pin landed: stormbootx v0.23.0 (a9f1be0)
+        pins 1a04808 and takes virtio NICs on the rustnic media
+        (`prefer_media_drivers = virtio`); golden
+        `golden-stormbootx-rustnic-4c485750874d219a`.
+  - [ ] stormbootx's rustnic disk (v0.23.0, `scripts/build-stormbootx-image.sh`)
+        under pve's OVMF on `stormnictest1`: the takeover from VirtioNetDxe
+        with the iPXE ROM and the NOT_FOUND disconnect (not run by #108).
+        In progress 2026-10-07.
+  - [ ] pvetest1/2 boot a release through stormbootx-rustnic 4c485750: a
+        test machine booted on an unpromoted golden is the master's to do
+        (as stormbootx#107); asked on #1.
