@@ -58,7 +58,7 @@ SC_BUILD_OUT=target/check.img SC_BUILD_OUT_TO=tmp/check.img sc-build scripts/bui
 
 ## Work plan
 
-- [ ] #1 virtio-net SNP driver (in progress, 2026-10-06)
+- [x] #1 virtio-net SNP driver (closed 2026-11-07)
   - [x] Scaffold: Cargo workspace (driver + `check/`), build.rs subsystem 11
         for the driver bin only, console/trace from stormnic-ixgbe, PciIo,
         decode, scripts/check-driver.sh
@@ -89,8 +89,6 @@ SC_BUILD_OUT=target/check.img SC_BUILD_OUT_TO=tmp/check.img sc-build scripts/bui
         10.77.0.10 and went on to the portal (192.168.31.202, not on the
         #310 net). The peer's pings go unanswered: stormbootx's smoltcp
         answers no ICMP (the check app did, 9/9), not the driver.
-  - [ ] pvetest1/2 boot a release through stormbootx-rustnic 4c485750: a
-        test machine booted on an unpromoted golden is the master's to do
-        (as stormbootx#107). Asked on #1 (needs-owner, 2026-10-07): the
-        master boots pvetest1/2 on it, or the owner takes run 8935d0a1dd as
-        the pve check and #1 closes.
+  - [x] pvetest1/2: owner's decision (2026-10-09, via the master): run
+        8935d0a1dd on `stormnictest1` is enough to close #1; booting a
+        release through stormbootx belongs to stormbootx (#106, #107).

@@ -2,6 +2,9 @@
 
 ## [Unreleased]
 
+### 2026-11-07
+- **docs:** #1 closed: the owner took pve run 8935d0a1dd (stormbootx v0.23.0 rustnic medium) as its last check; booting a release through stormbootx belongs to stormbootx (#106, #107)
+
 ### 2026-10-07
 - **test:** verified on pve `stormnictest1` under stormbootx v0.23.0's rustnic medium (run 8935d0a1dd): taken from pve OVMF's driver, SNP installed, leased 10.77.0.10
 - **docs:** README Shipping: pinned in stormbootx v0.23.0 (stormbootx#75) and taken from the firmware on the rustnic media (stormbootx#108); how to boot that medium on pve
