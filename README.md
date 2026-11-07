@@ -135,6 +135,13 @@ stormcentral testhost boot stormnictest1 --image tmp/stormbootx-rustnic.img \
 Not a stormcentral component (no golden of its own): a new driver commit
 reaches a release only through a new stormbootx pin.
 
+## Known limits
+
+- **MTU is fixed at 1500** (`MaxPacketSize`); `VIRTIO_NET_F_MTU` is not read
+  and RX buffers are 2 KiB, so jumbo frames are not supported (#4).
+- **Throughput** under stormbootx measured 105 MiB/s against 121-123 MiB/s on
+  OVMF's own VirtioNetDxe, same NIC and read (#3, stormbootx#108).
+
 ## Licence
 
 MIT (see LICENSE). NOTICE acknowledges the sources the hardware facts were learned from; no code was copied.
