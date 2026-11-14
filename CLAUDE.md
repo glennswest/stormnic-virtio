@@ -54,7 +54,7 @@ SC_BUILD_OUT=target/check.img SC_BUILD_OUT_TO=tmp/check.img sc-build scripts/bui
 
 ## Version
 
-`Cargo.toml` → `package.version` (and `check/Cargo.toml`). Current: `v0.1.0`.
+`Cargo.toml` → `package.version` (and `check/Cargo.toml`). Current: `v0.2.0`.
 
 ## Work plan
 

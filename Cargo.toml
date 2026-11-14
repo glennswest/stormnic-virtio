@@ -1,7 +1,7 @@
 [package]
 name = "stormnic-virtio"
 description = "Rust no_std UEFI EFI_SIMPLE_NETWORK driver for virtio-net (virtio 1.x PCI), loaded by stormbootx from its boot media"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2021"
 license = "MIT"
 
