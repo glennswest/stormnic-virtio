@@ -6,7 +6,7 @@ mod virtio;
 #[allow(dead_code)]
 mod sim;
 use sim::*;
-use virtio::{CapError, Caps, Error, Window};
+use virtio::{CapError, Caps, Duplex, Error, PortLine, Speed, Window};
 
 /// Config space with the status register's capability bit, the pointer at
 /// 0x34, and `caps` as (offset, bytes) — QEMU's layout by default.
@@ -144,6 +144,62 @@ fn identify_reads_mac_link_and_queues_and_leaves_the_device_reset() {
     // Without VIRTIO_NET_F_STATUS the link is up.
     d.offered &= !(1 << 16);
     assert!(virtio::identify(&mut d).unwrap().link);
+}
+
+#[test]
+fn speed_and_duplex_are_read_only_when_speed_duplex_is_negotiated() {
+    let mut d = Dev::new();
+    d.speed = 10_000;
+    d.duplex = 1;
+    let id = virtio::identify(&mut d).unwrap();
+    assert_eq!(id.features & 1 << 63, 0, "not offered, not accepted");
+    assert_eq!(id.speed, Speed { mbps: None, duplex: None });
+    d.offered |= 1 << 63;
+    let id = virtio::identify(&mut d).unwrap();
+    assert_ne!(id.features & 1 << 63, 0, "accepted when offered");
+    assert_eq!(id.speed, Speed { mbps: Some(10_000), duplex: Some(Duplex::Full) });
+    d.duplex = 0;
+    assert_eq!(virtio::identify(&mut d).unwrap().speed.duplex, Some(Duplex::Half));
+    // QEMU's default: speed and duplex unknown.
+    d.speed = 0xffff_ffff;
+    d.duplex = 0xff;
+    assert_eq!(virtio::identify(&mut d).unwrap().speed, Speed { mbps: None, duplex: None });
+    // Above 0x7fffffff is not a speed.
+    d.speed = 0x8000_0000;
+    assert_eq!(virtio::identify(&mut d).unwrap().speed.mbps, None);
+}
+
+#[test]
+fn the_standard_fec_of_a_virtual_port_is_none_at_any_speed() {
+    for mbps in [None, Some(1000), Some(10_000), Some(25_000), Some(100_000)] {
+        let s = Speed { mbps, duplex: Some(Duplex::Full) };
+        assert_eq!(virtio::standard_fec(s), virtio::Fec::None);
+    }
+}
+
+fn line(link: bool, speed: Speed) -> String {
+    PortLine { version: "0.2.0", at: "0000:00:03.0", device: 0x1041, name: "virtio-net (modern)", mac: MAC, link, speed }
+        .to_string()
+}
+
+#[test]
+fn the_port_line_names_driver_address_mac_media_speed_fec_and_link() {
+    assert_eq!(
+        line(true, Speed { mbps: Some(10_000), duplex: Some(Duplex::Full) }),
+        "stormnic-virtio 0.2.0: 0000:00:03.0 1af4:1041 virtio-net (modern) port 0: MAC 52:54:00:12:34:56, \
+         media virtual, speed 10000 Mb/s full duplex, FEC none, link UP"
+    );
+    assert_eq!(
+        line(true, Speed { mbps: None, duplex: None }),
+        "stormnic-virtio 0.2.0: 0000:00:03.0 1af4:1041 virtio-net (modern) port 0: MAC 52:54:00:12:34:56, \
+         media virtual, speed unknown, FEC none, link UP"
+    );
+}
+
+#[test]
+fn a_port_without_link_is_an_error_line() {
+    let l = line(false, Speed { mbps: None, duplex: None });
+    assert!(l.contains(", FEC none, link DOWN: error: "), "{l}");
 }
 
 #[test]

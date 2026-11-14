@@ -200,13 +200,19 @@ pub const F_ACCESS_PLATFORM: u64 = 1 << 33;
 /// The device needs the platform's memory barriers: the driver uses real
 /// fences (SeqCst), so it is accepted when offered.
 pub const F_ORDER_PLATFORM: u64 = 1 << 36;
+/// The device reports its speed and duplex in the device configuration
+/// (spec 5.1.3, 5.1.4): read only, for the port's line (#5).
+pub const F_NET_SPEED_DUPLEX: u64 = 1 << 63;
 /// What the driver accepts. No mergeable buffers, offloads or control queue:
 /// one RX and one TX queue with 2 KiB buffers.
-pub const ACCEPTED: u64 = F_NET_MAC | F_NET_STATUS | F_VERSION_1 | F_ACCESS_PLATFORM | F_ORDER_PLATFORM;
+pub const ACCEPTED: u64 =
+    F_NET_MAC | F_NET_STATUS | F_VERSION_1 | F_ACCESS_PLATFORM | F_ORDER_PLATFORM | F_NET_SPEED_DUPLEX;
 
 // virtio-net device configuration (spec 5.1.4).
 const NET_MAC: u32 = 0;
 const NET_STATUS: u32 = 6;
+const NET_SPEED: u32 = 12;
+const NET_DUPLEX: u32 = 16;
 const LINK_UP: u32 = 1;
 
 pub type R<T, E> = Result<T, Error<E>>;
@@ -336,13 +342,108 @@ pub fn link_up<B: Bus>(b: &mut B, features: u64) -> R<bool, B::Error> {
     Ok(u32::from(read16(b, Region::Device, NET_STATUS)?) & LINK_UP != 0)
 }
 
+/// Duplex as the device reports it (spec 5.1.4: 0x00 half, 0x01 full,
+/// anything else unknown).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Duplex {
+    Half,
+    Full,
+}
+
+/// The speed the device says it runs, in Mb/s, and its duplex: both `None`
+/// (unknown) without VIRTIO_NET_F_SPEED_DUPLEX, or when the device reports
+/// 0xffffffff / a value above 0x7fffffff (spec 5.1.4: 0 to 0x7fffffff, or
+/// 0xffffffff for unknown).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Speed {
+    pub mbps: Option<u32>,
+    pub duplex: Option<Duplex>,
+}
+
+pub fn speed<B: Bus>(b: &mut B, features: u64) -> R<Speed, B::Error> {
+    if features & F_NET_SPEED_DUPLEX == 0 {
+        return Ok(Speed { mbps: None, duplex: None });
+    }
+    let mbps = read32(b, Region::Device, NET_SPEED)?;
+    let duplex = match read8(b, Region::Device, NET_DUPLEX)? {
+        0 => Some(Duplex::Half),
+        1 => Some(Duplex::Full),
+        _ => None,
+    };
+    Ok(Speed { mbps: (mbps <= 0x7fff_ffff).then_some(mbps), duplex })
+}
+
+/// Forward error correction on the line. A virtio-net port is virtual: no
+/// PHY, no medium, nothing that IEEE 802.3 gives a FEC to, so the standard
+/// is none, and nothing in the device can set one (the stormnic contract,
+/// stormnic-virtio#5).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Fec {
+    None,
+}
+
+impl Fec {
+    pub fn name(self) -> &'static str {
+        match self {
+            Fec::None => "none",
+        }
+    }
+}
+
+/// The standard FEC for a virtio-net port at any speed: none.
+pub fn standard_fec(_speed: Speed) -> Fec {
+    Fec::None
+}
+
 /// What Start learns before any queue runs.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Identity {
     pub features: u64,
     pub mac: [u8; 6],
     pub link: bool,
+    pub speed: Speed,
     pub queues: u16,
+}
+
+/// The one line a port reports at bind (the stormnic contract, #5): driver
+/// and version, PCI address, PCI ID, name, port, MAC, media, speed, FEC and
+/// link. A port without link is an `error:` line, never a quiet one.
+pub struct PortLine<'a, A: core::fmt::Display> {
+    pub version: &'a str,
+    pub at: A,
+    pub device: u16,
+    pub name: &'a str,
+    pub mac: [u8; 6],
+    pub link: bool,
+    pub speed: Speed,
+}
+
+impl<A: core::fmt::Display> core::fmt::Display for PortLine<'_, A> {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        let m = self.mac;
+        write!(
+            f,
+            "stormnic-virtio {}: {} 1af4:{:04x} {} port 0: MAC {:02x}:{:02x}:{:02x}:{:02x}:{:02x}:{:02x}, media virtual, speed ",
+            self.version, self.at, self.device, self.name, m[0], m[1], m[2], m[3], m[4], m[5]
+        )?;
+        match self.speed.mbps {
+            Some(mbps) => write!(f, "{mbps} Mb/s")?,
+            None => f.write_str("unknown")?,
+        }
+        match self.speed.duplex {
+            Some(Duplex::Full) => f.write_str(" full duplex")?,
+            Some(Duplex::Half) => f.write_str(" half duplex")?,
+            None => {}
+        }
+        write!(f, ", FEC {}, ", standard_fec(self.speed).name())?;
+        if self.link {
+            f.write_str("link UP")
+        } else {
+            f.write_str(
+                "link DOWN: error: the device reports no link (VIRTIO_NET_S_LINK_UP clear: the host side of the virtual NIC is down)",
+            )
+        }
+    }
 }
 
 /// Negotiate, read the MAC, link and queue count, and reset again: the
@@ -359,8 +460,9 @@ fn read_identity<B: Bus>(b: &mut B) -> R<Identity, B::Error> {
     let features = negotiate(b)?;
     let mac = mac(b)?;
     let link = link_up(b, features)?;
+    let speed = speed(b, features)?;
     let queues = read16(b, Region::Common, NUM_QUEUES)?;
-    Ok(Identity { features, mac, link, queues })
+    Ok(Identity { features, mac, link, speed, queues })
 }
 
 #[path = "queue.rs"]

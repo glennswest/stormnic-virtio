@@ -34,9 +34,10 @@ this driver named. The check app (below) does exactly that.
   PCI capability list (common, notify, device configuration; any BAR, any
   offset); feature negotiation (spec 3.1.1): `VIRTIO_F_VERSION_1` and
   `VIRTIO_NET_F_MAC` required, `VIRTIO_NET_F_STATUS`,
-  `VIRTIO_F_ACCESS_PLATFORM` and `VIRTIO_F_ORDER_PLATFORM` accepted when
-  offered, nothing else (no offloads, no mergeable buffers, no control
-  queue); MAC and link from the device configuration. One DMA region
+  `VIRTIO_NET_F_SPEED_DUPLEX`, `VIRTIO_F_ACCESS_PLATFORM` and
+  `VIRTIO_F_ORDER_PLATFORM` accepted when offered, nothing else (no
+  offloads, no mergeable buffers, no control queue); MAC, link, speed and
+  duplex from the device configuration. One DMA region
   (PciIo `AllocateBuffer` + `Map` common buffer, 33 pages) holds both
   queues and their buffers. A DMA check sends one broadcast frame
   (EtherType 0x88B5, `stormnic-virtio DMA check`) and waits for its
@@ -59,16 +60,31 @@ this driver named. The check app (below) does exactly that.
 
 ## Console
 
-One line per NIC by default:
+One line per port by default, in the form every stormnic driver gives
+stormbootx (the stormnic contract, #5 / stormbootx#202): driver and
+version, PCI address, PCI ID, name, port, MAC, media, speed, FEC and link:
 
 ```
-stormnic-virtio 0.1.0: 0000:00:03.0 1af4:1041 virtio-net (modern): MAC 52:54:00:12:34:56, link up, queues 32/32, SNP installed
+stormnic-virtio 0.2.0: 0000:00:03.0 1af4:1041 virtio-net (modern) port 0: MAC 52:54:00:12:34:56, media virtual, speed 10000 Mb/s full duplex, FEC none, link UP
 ```
+
+- **Media** is `virtual`: a virtio-net function has no PHY or module.
+- **Speed and duplex** are the device's own (`VIRTIO_NET_F_SPEED_DUPLEX`,
+  QEMU's `speed=` / `duplex=`); `speed unknown` when the device does not
+  offer the feature or reports 0xffffffff (QEMU's default).
+- **FEC**: the driver applies the standard FEC for the port's media and
+  speed itself (`virtio::standard_fec`); nothing is handed down by the
+  loader. A virtual port has nothing IEEE 802.3 gives a FEC to, and the
+  device has nothing to set, so it is always `none`, and the line says so.
+- **Link** is `VIRTIO_NET_S_LINK_UP` (`VIRTIO_NET_F_STATUS`; up without
+  it). The link belongs to the host side; a port without it is an error
+  line: `…, FEC none, link DOWN: error: the device reports no link
+  (VIRTIO_NET_S_LINK_UP clear: the host side of the virtual NIC is down)`.
 
 Always printed as well: the DMA check's descriptor not coming back, any
 failure (with the trace lines before it), DMA that could not be stopped.
-Everything else — Supported, capability windows, negotiated features, DMA
-region, DMA check, SNP initialize/shutdown/filters, Stop — is trace,
+Everything else — Supported, capability windows, negotiated features, queue
+sizes, DMA region, DMA check, SNP initialize/shutdown/filters, Stop — is trace,
 printed when verbose: built with `--features verbose`, or the EFI variable
 `StormnicVerbose` (vendor `ce1479a2-eab9-4176-b0ad-c909ea5b8e0b`, shared by
 every stormnic driver) with a non-zero first byte.

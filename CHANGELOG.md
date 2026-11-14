@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### 2026-11-13
+- **feat:** the stormnic contract (#5, stormbootx#202): one line per port — driver, PCI address, PCI ID, MAC, media (`virtual`), speed, the standard FEC (`none`: a virtual port has none) and link; a port without link is an error line. `VIRTIO_NET_F_SPEED_DUPLEX` accepted when offered, its speed and duplex on the line (`unknown` otherwise). Queue sizes moved to the trace
+- **test:** host tests for speed/duplex, the standard FEC and the port line; `scripts/test-ovmf.sh` checks the port line on every boot and boots once with QEMU `speed=10000,duplex=full`
+
 ### 2026-11-07
 - **docs:** refreshed from the code (only #1's close-out landed since 2026-10-13): README Known limits names the fixed 1500 MTU (#4) and the throughput gap to VirtioNetDxe (#3); everything else rechecked, unchanged
 - **docs:** #1 closed: the owner took pve run 8935d0a1dd (stormbootx v0.23.0 rustnic medium) as its last check; booting a release through stormbootx belongs to stormbootx (#106, #107)

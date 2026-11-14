@@ -55,24 +55,31 @@ CHECK_CONF="udp_port=$PORT" scripts/build-image.sh "$W/check.img"
 accel=tcg
 [[ -w /dev/kvm ]] && accel=kvm
 boot() {
-    local name=$1 legacy=$2 rom=${4-} log="$W/$1.log"
+    # $5: extra virtio-net-pci properties; $6: the speed part of the port
+    # line they must give.
+    local name=$1 legacy=$2 rom=${4-} props=${5-} speed=${6-unknown} log="$W/$1.log"
     cp "$OVMF_VARS" "$W/vars.fd"
     say "boot $name (disable-legacy=$legacy, $accel)"
     timeout "$LIMIT" qemu-system-x86_64 -machine q35,accel="$accel" -m 512 -no-reboot \
         -drive if=pflash,format=raw,readonly=on,file="$OVMF_CODE" \
         -drive if=pflash,format=raw,file="$W/vars.fd" \
         -drive file="$W/check.img",format=raw,if=none,id=disk -device virtio-blk-pci,drive=disk,bootindex=1 \
-        -netdev user,id=n0 -device virtio-net-pci,netdev=n0,disable-legacy="$legacy",disable-modern=off,romfile="$rom" \
+        -netdev user,id=n0 -device virtio-net-pci,netdev=n0,disable-legacy="$legacy",disable-modern=off,romfile="$rom"$props \
         -serial file:"$log" -monitor none -display none </dev/null >/dev/null 2>&1 || true
     sed -e 's/\x1b\[[0-9;]*[A-Za-z]//g' "$log" | tr -d '\r' | grep -E '^(stormnic-virtio|check:|STORMNIC-VIRTIO)' || true
     grep -q 'STORMNIC-VIRTIO CHECK PASS' "$log" || die "$name: no PASS line"
     # OVMF's VirtioNetDxe held it and had to be disconnected.
     grep -q 'firmware driver(s) disconnected' "$log" \
         || die "$name: the firmware's driver did not hold the NIC, so the takeover was not tested"
-    grep -q "stormnic-virtio [0-9.]*: .*1af4:$3 .*SNP installed" "$log" || die "$name: no driver line for 1af4:$3"
+    # The stormnic contract's port line (#5): media, speed, the standard
+    # FEC (none: virtual) and link UP.
+    grep -Eq "stormnic-virtio [0-9.]+: [0-9a-f:.]+ 1af4:$3 .* port 0: MAC ([0-9a-f]{2}:){5}[0-9a-f]{2}, media virtual, speed $speed, FEC none, link UP" \
+        <(sed -e 's/\x1b\[[0-9;]*[A-Za-z]//g' "$log" | tr -d '\r') || die "$name: no port line for 1af4:$3 with speed $speed, FEC none, link UP"
     say "$name: PASS"
 }
 boot modern on 1041
+# The device's own speed and duplex (VIRTIO_NET_F_SPEED_DUPLEX) on the line.
+boot modern-speed on 1041 "" ",speed=10000,duplex=full" "10000 Mb/s full duplex"
 boot transitional off 1000
 # QEMU's iPXE EFI option ROM on the NIC, as on pve: iPXE opens PciIo
 # EXCLUSIVE when ConnectController tries it after ours, which forced the

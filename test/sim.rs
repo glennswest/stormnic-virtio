@@ -46,6 +46,10 @@ pub struct Dev {
     pub q: [Q; 3],
     pub mac: [u8; 6],
     pub net_status: u16,
+    /// speed (Mb/s) and duplex in the device configuration, read only when
+    /// VIRTIO_NET_F_SPEED_DUPLEX (63) is offered.
+    pub speed: u32,
+    pub duplex: u8,
     pub generation: u8,
     /// Reads of device_status left before a reset shows 0.
     pub reset_delay: usize,
@@ -76,7 +80,7 @@ impl Dev {
                 unsafe { p.add(p.align_offset(4096)) }
             },
             status: 0, offered: OFFERED, dfsel: 0, gfsel: 0, driver_features: 0, qsel: 0,
-            q: [q.clone(), q.clone(), q], mac: MAC, net_status: 1, generation: 0,
+            q: [q.clone(), q.clone(), q], mac: MAC, net_status: 1, speed: 0xffff_ffff, duplex: 0xff, generation: 0,
             reset_delay: 0, reject_features: false, ops: Vec::new(), wire: Vec::new(),
             loopback: false, dropped: 0, delays: 0, hold_tx: false, change_during_read: false,
             fail_io: false,
@@ -192,6 +196,8 @@ impl Bus for Dev {
                 self.mac[o as usize] as u32
             }
             (Region::Device, 6, 2) => self.net_status as u32,
+            (Region::Device, 12, 4) => self.speed,
+            (Region::Device, 16, 1) => self.duplex as u32,
             other => panic!("unexpected read {other:?}"),
         })
     }

@@ -361,11 +361,17 @@ impl VirtioDriver {
             }
         };
         self.bound.push(Bound { controller, location, decode: attributes, dma, port, pci });
-        // The one default line per NIC (stormnic-ixgbe#22).
+        // The one default line per port (stormnic-ixgbe#22), in the stormnic
+        // contract's form (#5): driver, PCI address, MAC, media, speed, FEC,
+        // link; a port without link is an error line.
         say!(
-            "stormnic-virtio {}: {at} 1af4:{dev:04x} {}: MAC {}, link {}, queues {}/{}, SNP installed",
-            env!("CARGO_PKG_VERSION"), nic.name, mac_str(id.mac), if id.link { "up" } else { "down" }, sizes.0, sizes.1
+            "{}",
+            virtio::PortLine {
+                version: env!("CARGO_PKG_VERSION"), at: &at, device: dev, name: nic.name,
+                mac: id.mac, link: id.link, speed: id.speed,
+            }
         );
+        trace!("stormnic-virtio: {at} 1af4:{dev:04x}: queues {}/{}, SNP installed", sizes.0, sizes.1);
         console::begin();
         Ok(())
     }
