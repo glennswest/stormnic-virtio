@@ -92,10 +92,16 @@ SC_BUILD_OUT=target/check.img SC_BUILD_OUT_TO=tmp/check.img sc-build scripts/bui
   - [x] pvetest1/2: owner's decision (2026-10-09, via the master): run
         8935d0a1dd on `stormnictest1` is enough to close #1; booting a
         release through stormbootx belongs to stormbootx (#106, #107).
-- [ ] #5 the stormnic contract (stormbootx#202): one line per port — driver,
+- [x] #5 the stormnic contract (stormbootx#202): one line per port — driver,
       PCI address, MAC, media, speed, FEC, link; a port without link is an
       error line. virtio-net is virtual: the standard FEC is none and the
       driver says so; speed and duplex from `VIRTIO_NET_F_SPEED_DUPLEX`
       (accepted when offered, "unknown" otherwise), link from
       `VIRTIO_NET_F_STATUS`. Same line form as stormnic-igb (b065f80).
       v0.2.0. Check: host tests, test-ovmf (one boot with QEMU `speed=`).
+  - [x] v0.2.0 (2dcafd3): host tests 48 pass; check-driver 56,320 B,
+        subsystem 11; test-ovmf 4 boots, each with the port line (`speed
+        10000 Mb/s full duplex` with QEMU `speed=`); pve `stormnictest1` run
+        c9a5b846b8 passed with the line, `FEC none, link UP` (2026-11-13).
+  - [ ] stormbootx pins it: asked on stormbootx#210 (STORMNIC_VIRTIO_REF
+        1a04808 → 2dcafd3); stormbootx's to do.

@@ -2,6 +2,9 @@
 
 ## [Unreleased]
 
+### 2026-11-13
+- **docs:** #5 verified (test-ovmf 4 boots, pve run c9a5b846b8); stormbootx pin asked on stormbootx#210
+
 ## [v0.2.0] — 2026-11-13
 
 ### Added

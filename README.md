@@ -119,6 +119,10 @@ from Fedora OVMF's VirtioNetDxe; on pve, run `80115f800a` passed with
 `--ping` (lease, ping 5/5, UDP echo, the peer's pings answered 9/9) after
 taking the NIC from pve OVMF's VirtioNetDxe and its network stack.
 
+v0.2.0 (2dcafd3, 2026-11-13): `scripts/test-ovmf.sh`'s four boots (one
+with QEMU `speed=10000,duplex=full`) and pve run `c9a5b846b8` each print the
+port line with `FEC none, link UP`.
+
 On pve's OVMF, `DisconnectController` on the function returns `NOT_FOUND`
 even when every driver came off: the check app judges by the BY_DRIVER
 opens left, and takes the tree down leaf first.
