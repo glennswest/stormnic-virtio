@@ -140,6 +140,9 @@ stormnic-ixgbe and stormnic-mlx4: stormbootx v0.23.0 pins 1a04808
 (stormbootx#75) and, with `prefer_media_drivers = virtio` on the rustnic
 media, takes each virtio-net function from the firmware's driver and
 connects this one (stormbootx#108). The fw media keep OVMF's driver.
+1a04808 predates v0.2.0, so stormbootx's media do not yet print the
+per-port line; the pin to 2dcafd3 is asked on stormbootx#210 and is
+stormbootx's to do.
 
 `scripts/build-stormbootx-image.sh` builds that rustnic disk medium at a
 stormbootx ref (default v0.23.0) with stormbootx's own golden recipe, for a

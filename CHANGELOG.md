@@ -2,6 +2,9 @@
 
 ## [Unreleased]
 
+### 2026-11-14
+- **docs:** refreshed from the code (v0.2.0 since 2026-11-07): console, features, queues, Known limits (#3, #4) rechecked against `src/`, unchanged; README Shipping says the stormbootx pin (1a04808) predates the port line and the pin to 2dcafd3 is open on stormbootx#210. Nothing the docs promise is missing from the code, so no new issue
+
 ### 2026-11-13
 - **docs:** #5 verified (test-ovmf 4 boots, pve run c9a5b846b8); stormbootx pin asked on stormbootx#210
 
