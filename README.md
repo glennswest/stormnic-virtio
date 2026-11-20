@@ -43,6 +43,12 @@ this driver named. The check app (below) does exactly that.
   (EtherType 0x88B5, `stormnic-virtio DMA check`) and waits for its
   descriptor to come back; then the device is reset and the SNP goes on a
   child handle with the controller's device path plus a MAC node.
+- **Stop, or a Start that fails after the queues are set up**: the device is
+  reset, the DMA region freed and memory decode and bus mastering put back
+  as Start found them. A device that would not reset might still DMA, so
+  its region is kept allocated and bus mastering is turned off and left
+  off, even when the firmware had it on (`decode::release_kept`, finding
+  b0a545cc9c24); the console says whether it read back off.
 - **Queues**: receive queue 0 and transmit queue 1, split virtqueues of at
   most 32 entries (fewer if the device offers fewer), one 2 KiB buffer per
   descriptor, the 12-byte `virtio_net_hdr` in front of every frame (all

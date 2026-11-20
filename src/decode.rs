@@ -16,7 +16,8 @@
 //!    write-1-to-clear bits) and read back. Only if they are still clear
 //!    does Start fail.
 //!
-//! `release` undoes exactly what `enable` did.
+//! `release` undoes exactly what `enable` did; `release_kept` does the same
+//! but leaves bus mastering off, for a device that would not reset.
 
 /// `EFI_PCI_IO_ATTRIBUTE_MEMORY`.
 pub const ATTRIBUTE_MEMORY: u64 = 0x0002;
@@ -125,6 +126,30 @@ pub fn release<P: Pci>(pci: &P, e: &Enabled<P::Status>) -> Result<(), P::Status>
         }
     }
     r
+}
+
+/// `release` for a device that would not reset (finding b0a545cc9c24): it
+/// may still DMA into pages the driver keeps allocated, so bus mastering is
+/// turned off first and never put back, whatever `enable` found. Memory
+/// decode and the other attributes go back as `release` would. Ok if BME
+/// reads back clear at the end; the attribute and config steps that failed
+/// on the way are not errors if it does.
+pub fn release_kept<P: Pci>(pci: &P, e: &Enabled<P::Status>) -> Result<(), Option<P::Status>> {
+    stop_bus_master(pci)?;
+    if let Some(before) = e.command_before {
+        if let Ok(now) = pci.config_read_u16(COMMAND) {
+            let _ = pci.config_write_u16(COMMAND, (now & !COMMAND_WANTED) | (before & COMMAND_MEMORY));
+        }
+    }
+    if e.by_attributes != 0 {
+        let _ = match e.original {
+            Ok(original) => pci.set(original & !ATTRIBUTE_BUS_MASTER),
+            Err(_) => pci.disable(e.by_attributes),
+        };
+    }
+    // Firmware's attribute calls write the command register too: check that
+    // none of them set BME again.
+    stop_bus_master(pci)
 }
 
 /// Turn bus mastering off (a NIC whose queues would not stop): `Disable`,

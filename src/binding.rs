@@ -339,12 +339,9 @@ impl VirtioDriver {
             "stormnic-virtio: {at} 1af4:{dev:04x}: features {:#x} negotiated, MAC {}, link {}, {} queue(s)",
             id.features, mac_str(id.mac), if id.link { "up" } else { "down" }, id.queues
         );
-        let (dma, queues) = match dma_up(&pci, caps, &at, dev, &id) {
+        let (dma, queues) = match dma_up(&pci, caps, &at, dev, &id, &attributes) {
             Ok(r) => r,
-            Err(()) => {
-                restore(&pci, &attributes);
-                return Err(Status::DEVICE_ERROR.into());
-            }
+            Err(()) => return Err(Status::DEVICE_ERROR.into()),
         };
         let sizes = queues.sizes();
         let port = match snp::create(agent.as_ptr(), controller.as_ptr(), &pci, caps, queues, id.mac, id.link, location) {
@@ -352,11 +349,11 @@ impl VirtioDriver {
             Err((status, in_use)) => {
                 fail!("stormnic-virtio: {at} 1af4:{dev:04x}: SNP not installed: {status:?}; releasing");
                 if in_use {
-                    keep_dma(&pci, &at);
+                    keep_dma(&pci, &at, &attributes);
                 } else {
                     dma.release(&pci);
+                    restore(&pci, &attributes);
                 }
-                restore(&pci, &attributes);
                 return Err(Status::DEVICE_ERROR.into());
             }
         };
@@ -401,20 +398,24 @@ impl VirtioDriver {
         let b = self.bound.swap_remove(i);
         // SAFETY: the child is gone, so nothing else reaches the Port.
         match unsafe { snp::destroy(b.port) } {
-            Ok(()) => b.dma.release(&b.pci),
-            Err(_) => keep_dma(&b.pci, &at(b.location)),
+            Ok(()) => {
+                b.dma.release(&b.pci);
+                restore(&b.pci, &b.decode);
+            }
+            Err(_) => keep_dma(&b.pci, &at(b.location), &b.decode),
         }
-        restore(&b.pci, &b.decode);
         trace!("stormnic-virtio: {}: Stop: released", at(b.location));
         Ok(())
     }
 }
 
 /// The device would not reset: it might still DMA into the region, so it is
-/// never freed. Bus mastering is turned off at the PCI level instead; the
-/// pages stay allocated until reboot.
-fn keep_dma(pci: &PciIo, at: &impl core::fmt::Display) {
-    let off = decode::stop_bus_master(pci);
+/// never freed. Bus mastering is turned off at the PCI level instead, and
+/// stays off: the rest of what Start enabled is put back, but never BME
+/// (finding b0a545cc9c24: `restore` after this used to turn it back on).
+/// The pages stay allocated until reboot.
+fn keep_dma(pci: &PciIo, at: &impl core::fmt::Display, enabled: &Enabled<Status>) {
+    let off = decode::release_kept(pci, enabled);
     fail!(
         "stormnic-virtio: {at}: could not reset the device; bus mastering {}, DMA region kept allocated",
         if off.is_ok() { "disabled" } else { "could not be disabled" }
@@ -422,14 +423,16 @@ fn keep_dma(pci: &PciIo, at: &impl core::fmt::Display) {
 }
 
 /// Map the region, start the queues, run the DMA check, and reset the
-/// device. Everything is logged; Err(()) means Start fails (the region is
-/// released, or kept if the device would not reset).
-fn dma_up(pci: &PciIo, caps: Caps, at: &impl core::fmt::Display, dev: u16, id: &Identity)
-    -> core::result::Result<(DmaRegion, Net), ()> {
+/// device. Everything is logged; Err(()) means Start fails, and the function
+/// is already released: the region freed and `enabled` undone, or, if the
+/// device would not reset, the region kept and bus mastering left off.
+fn dma_up(pci: &PciIo, caps: Caps, at: &impl core::fmt::Display, dev: u16, id: &Identity,
+    enabled: &Enabled<Status>) -> core::result::Result<(DmaRegion, Net), ()> {
     let region = match DmaRegion::new(pci) {
         Ok(r) => r,
         Err(e) => {
             fail!("stormnic-virtio: {at} 1af4:{dev:04x}: DMA region not mapped: {:?}; releasing", e.status());
+            restore(pci, enabled);
             return Err(());
         }
     };
@@ -453,11 +456,12 @@ fn dma_up(pci: &PciIo, caps: Caps, at: &impl core::fmt::Display, dev: u16, id: &
         Ok(_) if checked.is_ok() => Ok((region, queues)),
         Ok(_) => {
             region.release(pci);
+            restore(pci, enabled);
             say!("stormnic-virtio: {at} 1af4:{dev:04x}: DMA region released; releasing");
             Err(())
         }
         Err(_) => {
-            keep_dma(pci, at);
+            keep_dma(pci, at, enabled);
             Err(())
         }
     }

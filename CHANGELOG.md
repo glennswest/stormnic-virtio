@@ -2,6 +2,9 @@
 
 ## [Unreleased]
 
+### 2026-11-20
+- **fix:** a device that would not reset (Stop, a failed Start or a failed SNP install) no longer gets bus mastering back: `keep_dma` turned BME off, then `restore` put the original attributes back, which turned BME on again whenever the firmware had it on (finding b0a545cc9c24, #7). `decode::release_kept` turns BME off first, puts the rest back without it and checks BME reads clear at the end; host tests in `test/decode.rs` (now run by `scripts/test-host.sh`)
+
 ### 2026-11-14
 - **docs:** refreshed from the code (v0.2.0 since 2026-11-07): console, features, queues, Known limits (#3, #4) rechecked against `src/`, unchanged; README Shipping says the stormbootx pin (1a04808) predates the port line and the pin to 2dcafd3 is open on stormbootx#210. Nothing the docs promise is missing from the code, so no new issue
 

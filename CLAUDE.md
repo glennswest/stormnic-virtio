@@ -105,3 +105,6 @@ SC_BUILD_OUT=target/check.img SC_BUILD_OUT_TO=tmp/check.img sc-build scripts/bui
         c9a5b846b8 passed with the line, `FEC none, link UP` (2026-11-13).
   - [ ] stormbootx pins it: asked on stormbootx#210 (STORMNIC_VIRTIO_REF
         1a04808 → 2dcafd3); stormbootx's to do.
+- [ ] #7 finding b0a545cc9c24 (P0): never restore bus mastering after a
+      device that would not reset (`decode::release_kept`, test/decode.rs).
+      Then the majors fb205131ab41, bfb66e991e00 and minor 8f5095bd0c86.
