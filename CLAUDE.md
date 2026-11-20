@@ -103,8 +103,8 @@ SC_BUILD_OUT=target/check.img SC_BUILD_OUT_TO=tmp/check.img sc-build scripts/bui
         subsystem 11; test-ovmf 4 boots, each with the port line (`speed
         10000 Mb/s full duplex` with QEMU `speed=`); pve `stormnictest1` run
         c9a5b846b8 passed with the line, `FEC none, link UP` (2026-11-13).
-  - [ ] stormbootx pins it: asked on stormbootx#210 (STORMNIC_VIRTIO_REF
-        1a04808 → 2dcafd3); stormbootx's to do.
+  - [x] stormbootx pinned it: stormbootx#210 (STORMNIC_VIRTIO_REF
+        1a04808 → 2dcafd3), closed.
 - [x] #7 finding b0a545cc9c24 (P0): never restore bus mastering after a
       device that would not reset (`decode::release_kept`, test/decode.rs;
       ee1a071, v0.2.1). Host tests 66 pass (decode 18, one reproducing the
