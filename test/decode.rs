@@ -321,3 +321,49 @@ fn release_kept_reports_a_stuck_bme() {
     }
     assert_eq!(release_kept(&NoClear(f), &e), Err(None));
 }
+
+// ExitBootServices (finding b0a545cc9c24): a device that would not reset
+// has BME cleared, with config accesses only.
+
+#[test]
+fn exit_with_device_reset_leaves_the_command_register() {
+    let f = Fake { command: RefCell::new(OTHER | CMD), ..fake() };
+    contain_at_exit(&f, &Ok::<(), ()>(())).unwrap();
+    assert_eq!(*f.command.borrow(), OTHER | CMD);
+    assert!(f.calls.borrow().is_empty());
+}
+
+#[test]
+fn exit_with_reset_failed_clears_bme_by_config_only() {
+    let f = Fake { command: RefCell::new(OTHER | CMD), ..fake() };
+    contain_at_exit(&f, &Err::<(), _>("reset timed out")).unwrap();
+    assert_eq!(*f.command.borrow(), OTHER | COMMAND_MEMORY);
+    // No attribute call in an ExitBootServices notify: only the write.
+    assert_eq!(*f.calls.borrow(), vec![format!("write {:#06x}", OTHER | COMMAND_MEMORY)]);
+}
+
+#[test]
+fn exit_with_reset_failed_reports_a_stuck_bme() {
+    let f = Fake { command: RefCell::new(OTHER | CMD), ..fake() };
+    struct NoClear(Fake);
+    impl Pci for NoClear {
+        type Status = &'static str;
+        fn get(&self) -> Result<u64, &'static str> { self.0.get() }
+        fn supported(&self) -> Result<u64, &'static str> { self.0.supported() }
+        fn enable(&self, a: u64) -> Result<(), &'static str> { self.0.enable(a) }
+        fn disable(&self, a: u64) -> Result<(), &'static str> { self.0.disable(a) }
+        fn set(&self, a: u64) -> Result<(), &'static str> { self.0.set(a) }
+        fn config_read_u16(&self, o: u32) -> Result<u16, &'static str> { self.0.config_read_u16(o) }
+        fn config_write_u16(&self, o: u32, v: u16) -> Result<(), &'static str> {
+            self.0.config_write_u16(o, v | COMMAND_BUS_MASTER)
+        }
+    }
+    let f = NoClear(f);
+    assert_eq!(contain_at_exit(&f, &Err::<(), _>(())), Err(None));
+}
+
+#[test]
+fn exit_with_reset_failed_and_config_failing_says_so() {
+    let f = Fake { fail_config: true, command: RefCell::new(OTHER | CMD), ..fake() };
+    assert_eq!(contain_at_exit(&f, &Err::<(), _>(())), Err(Some("DEVICE_ERROR")));
+}

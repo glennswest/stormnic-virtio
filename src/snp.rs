@@ -360,13 +360,16 @@ unsafe extern "efiapi" fn wait_notify(event: Event, context: *mut c_void) {
     }
 }
 
-/// ExitBootServices: stop the queues. No console output: the OS may have
-/// the console by now.
+/// ExitBootServices: stop the queues; if the device would not reset, turn
+/// bus mastering off so it cannot DMA into memory the OS owns next (finding
+/// b0a545cc9c24). No console output: the OS may have the console by now.
 unsafe extern "efiapi" fn exit_notify(_event: Event, context: *mut c_void) {
     // SAFETY: as `wait_notify`.
     let port = unsafe { &mut *(context as *mut Port) };
     let mut io = port.io();
-    let _ = port.core.halt(&mut io);
+    let halted = port.core.halt(&mut io);
+    // SAFETY: the BY_DRIVER PciIo open outlives the Port (see `Port::io`).
+    let _ = crate::decode::contain_at_exit(unsafe { &*port.pci }, &halted);
 }
 
 /// Make the Port and its child handle. The device is reset; `pci` is the

@@ -111,6 +111,10 @@ SC_BUILD_OUT=target/check.img SC_BUILD_OUT_TO=tmp/check.img sc-build scripts/bui
       old order); check-driver 56,320 B, subsystem 11, no warnings;
       test-ovmf 4 boots PASS (2026-11-20). The same bug in stormnic-ixgbe
       is its #43. Pin of 9c9cc69 asked on stormbootx#228 (stormbootx's to do).
+- [ ] #8 finding b0a545cc9c24 again: the ExitBootServices part #7 left.
+      `exit_notify` ignored a failed `halt`, leaving BME on; now
+      `decode::contain_at_exit` clears BME by config write when the reset
+      failed. Check: host tests, check-driver, test-ovmf; then v0.2.2.
 - [ ] Next: the majors fb205131ab41 (snp_core.rs:163, TX recycle state on
       restart), bfb66e991e00 (snp_core.rs:193, stop DMA if link read fails)
       and minor 8f5095bd0c86 (virtio.rs:367, config generation).

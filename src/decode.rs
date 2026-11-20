@@ -157,6 +157,26 @@ pub fn release_kept<P: Pci>(pci: &P, e: &Enabled<P::Status>) -> Result<(), Optio
 /// Ok if BME reads back clear.
 pub fn stop_bus_master<P: Pci>(pci: &P) -> Result<(), Option<P::Status>> {
     let _ = pci.disable(ATTRIBUTE_BUS_MASTER);
+    clear_bus_master(pci)
+}
+
+/// ExitBootServices (finding b0a545cc9c24): `halted` is what stopping the
+/// queues returned. If the device would not reset it may still DMA into
+/// memory the OS owns next, so BME is cleared in the command register. Only
+/// config accesses here: no attribute call, which in an ExitBootServices
+/// notify may reach firmware code that is no longer safe to run. A device
+/// that did reset is left as it is. Ok if BME reads back clear (or the
+/// device reset).
+pub fn contain_at_exit<P: Pci, E>(pci: &P, halted: &Result<(), E>) -> Result<(), Option<P::Status>> {
+    if halted.is_ok() {
+        return Ok(());
+    }
+    clear_bus_master(pci)
+}
+
+/// BME cleared with a 16-bit config write (the status register above has
+/// write-1-to-clear bits), and read back.
+fn clear_bus_master<P: Pci>(pci: &P) -> Result<(), Option<P::Status>> {
     let command = pci.config_read_u16(COMMAND).map_err(Some)?;
     if command & COMMAND_BUS_MASTER != 0 {
         pci.config_write_u16(COMMAND, command & !COMMAND_BUS_MASTER).map_err(Some)?;

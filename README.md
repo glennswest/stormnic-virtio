@@ -49,6 +49,11 @@ this driver named. The check app (below) does exactly that.
   its region is kept allocated and bus mastering is turned off and left
   off, even when the firmware had it on (`decode::release_kept`, finding
   b0a545cc9c24); the console says whether it read back off.
+- **ExitBootServices**: the queues are stopped (a device reset). If the
+  device would not reset, bus mastering is cleared in the PCI command
+  register (a config write only, no attribute call, and no console output)
+  so it cannot DMA into memory the OS owns next (`decode::contain_at_exit`,
+  #8).
 - **Queues**: receive queue 0 and transmit queue 1, split virtqueues of at
   most 32 entries (fewer if the device offers fewer), one 2 KiB buffer per
   descriptor, the 12-byte `virtio_net_hdr` in front of every frame (all
