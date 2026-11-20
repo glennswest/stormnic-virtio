@@ -110,7 +110,7 @@ SC_BUILD_OUT=target/check.img SC_BUILD_OUT_TO=tmp/check.img sc-build scripts/bui
       ee1a071, v0.2.1). Host tests 66 pass (decode 18, one reproducing the
       old order); check-driver 56,320 B, subsystem 11, no warnings;
       test-ovmf 4 boots PASS (2026-11-20). The same bug in stormnic-ixgbe
-      is its #43. Ships when stormbootx pins v0.2.1.
+      is its #43. Pin of 9c9cc69 asked on stormbootx#228 (stormbootx's to do).
 - [ ] Next: the majors fb205131ab41 (snp_core.rs:163, TX recycle state on
       restart), bfb66e991e00 (snp_core.rs:193, stop DMA if link read fails)
       and minor 8f5095bd0c86 (virtio.rs:367, config generation).

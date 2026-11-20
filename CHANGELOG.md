@@ -2,6 +2,9 @@
 
 ## [Unreleased]
 
+### 2026-11-20
+- **docs:** README Shipping and the work plan: v0.2.0 pinned by stormbootx (#210); the v0.2.1 pin asked on stormbootx#228
+
 ## [v0.2.1] — 2026-11-20
 
 ### Fixed
