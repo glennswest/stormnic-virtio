@@ -153,7 +153,8 @@ media, takes each virtio-net function from the firmware's driver and
 connects this one (stormbootx#108). The fw media keep OVMF's driver.
 stormbootx pinned v0.2.0 (2dcafd3, the per-port line) on stormbootx#210.
 v0.2.1 (9c9cc69: bus mastering stays off after a NIC that would not reset,
-#7) is asked on stormbootx#228 and is stormbootx's to do.
+#7) and v0.2.2 (also at ExitBootServices, #8) are asked on stormbootx#228
+and are stormbootx's to do.
 
 `scripts/build-stormbootx-image.sh` builds that rustnic disk medium at a
 stormbootx ref (default v0.23.0) with stormbootx's own golden recipe, for a

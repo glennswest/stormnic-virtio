@@ -2,8 +2,12 @@
 
 ## [Unreleased]
 
+## [v0.2.2] — 2026-11-20
+
+### Fixed
+- ExitBootServices with a device that would not reset now clears Bus Master Enable in the PCI command register (config write only, no attribute call); before, the failed reset was ignored and BME stayed on, so the device could DMA into memory the OS owns next (finding b0a545cc9c24, the part #7 left, #8). `decode::contain_at_exit`, four host tests in `test/decode.rs`
+
 ### 2026-11-20
-- **fix:** ExitBootServices with a device that would not reset now clears Bus Master Enable in the PCI command register (config write only, no attribute call); before, the failed reset was ignored and BME stayed on, so the device could DMA into memory the OS owns next (finding b0a545cc9c24, the part #7 left, #8). `decode::contain_at_exit`, four host tests in `test/decode.rs`
 - **docs:** README Shipping and the work plan: v0.2.0 pinned by stormbootx (#210); the v0.2.1 pin asked on stormbootx#228
 
 ## [v0.2.1] — 2026-11-20
