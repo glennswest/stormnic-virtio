@@ -54,7 +54,7 @@ SC_BUILD_OUT=target/check.img SC_BUILD_OUT_TO=tmp/check.img sc-build scripts/bui
 
 ## Version
 
-`Cargo.toml` → `package.version` (and `check/Cargo.toml`). Current: `v0.2.0`.
+`Cargo.toml` → `package.version` (and `check/Cargo.toml`). Current: `v0.2.1`.
 
 ## Work plan
 
@@ -105,6 +105,12 @@ SC_BUILD_OUT=target/check.img SC_BUILD_OUT_TO=tmp/check.img sc-build scripts/bui
         c9a5b846b8 passed with the line, `FEC none, link UP` (2026-11-13).
   - [ ] stormbootx pins it: asked on stormbootx#210 (STORMNIC_VIRTIO_REF
         1a04808 → 2dcafd3); stormbootx's to do.
-- [ ] #7 finding b0a545cc9c24 (P0): never restore bus mastering after a
-      device that would not reset (`decode::release_kept`, test/decode.rs).
-      Then the majors fb205131ab41, bfb66e991e00 and minor 8f5095bd0c86.
+- [x] #7 finding b0a545cc9c24 (P0): never restore bus mastering after a
+      device that would not reset (`decode::release_kept`, test/decode.rs;
+      ee1a071, v0.2.1). Host tests 66 pass (decode 18, one reproducing the
+      old order); check-driver 56,320 B, subsystem 11, no warnings;
+      test-ovmf 4 boots PASS (2026-11-20). The same bug in stormnic-ixgbe
+      is its #43. Ships when stormbootx pins v0.2.1.
+- [ ] Next: the majors fb205131ab41 (snp_core.rs:163, TX recycle state on
+      restart), bfb66e991e00 (snp_core.rs:193, stop DMA if link read fails)
+      and minor 8f5095bd0c86 (virtio.rs:367, config generation).
