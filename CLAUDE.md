@@ -117,6 +117,10 @@ SC_BUILD_OUT=target/check.img SC_BUILD_OUT_TO=tmp/check.img sc-build scripts/bui
       failed (39b3ef9, v0.2.2). Host tests 70 pass (decode 22); check-driver
       56,320 B, subsystem 11, no warnings; test-ovmf 4 boots PASS
       (2026-11-20). Pin of v0.2.2 asked on stormbootx#228.
-- [ ] Next: the majors fb205131ab41 (snp_core.rs:163, TX recycle state on
-      restart), bfb66e991e00 (snp_core.rs:193, stop DMA if link read fails)
-      and minor 8f5095bd0c86 (virtio.rs:367, config generation).
+- [ ] #9 the majors fb205131ab41 (snp_core.rs:163, TX recycle state on
+      restart: cleared with every queue stop/start) and bfb66e991e00
+      (snp_core.rs:193: reset on a failed link read; `halt` judges by
+      `Net::running`, which stays set until a reset takes). Host tests
+      `test/snp.rs` (3 new). Check: sc-build test-host, check-driver,
+      test-ovmf. v0.2.3.
+- [ ] Next: minor 8f5095bd0c86 (virtio.rs:367, config generation).

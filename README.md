@@ -62,7 +62,13 @@ this driver named. The check app (below) does exactly that.
   buffers, so no caller memory is mapped for DMA.
 - **SNP** (`src/snp_core.rs`, from stormnic-ixgbe): Initialize is a full
   device initialization, Shutdown and ExitBootServices are a device reset
-  (after which the device touches no queue memory). Receive filters are
+  (after which the device touches no queue memory); a failure after the
+  queues start (the link read) resets the device before returning, and
+  ExitBootServices stops any queues still running whatever the SNP state.
+  Every stop or restart of the queues (Initialize, Reset, Shutdown) drops
+  the frames still queued and the transmit buffers GetStatus had not yet
+  handed back: Transmit copied them, so the caller owns them again.
+  Receive filters are
   applied in software (without the control queue the device's own filter
   cannot be programmed; QEMU passes everything). The station address is
   the device's: `MacAddressChangeable` is FALSE and StationAddress accepts

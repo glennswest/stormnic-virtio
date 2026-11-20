@@ -257,6 +257,84 @@ fn halt_at_exit_boot_services_resets_the_device() {
     assert!(!s.frame_waiting(&mut d));
 }
 
+/// Finding bfb66e991e00: the link read after the queues start fails.
+/// Initialize and Reset reset the device before returning, and the
+/// interface is left Started with nothing running.
+#[test]
+fn a_link_read_failure_after_start_stops_the_queues() {
+    let (mut d, mut s) = snp();
+    s.start::<&str>().unwrap();
+    d.fail_link = true;
+    assert_eq!(s.initialize(&mut d), Err(Fail::Device(Error::Io("link"))));
+    assert_eq!(s.state, State::Started);
+    assert_eq!(d.status, 0, "the device was reset");
+    assert!(!s.net.running);
+    d.fail_link = false;
+    s.initialize(&mut d).unwrap();
+    d.fail_link = true;
+    assert_eq!(s.reset(&mut d), Err(Fail::Device(Error::Io("link"))));
+    assert_eq!(s.state, State::Started);
+    assert_eq!(d.status, 0);
+    assert!(!s.net.running);
+}
+
+/// Finding bfb66e991e00: when even the reset after a failed link read
+/// fails, the queues may run on a Started interface; ExitBootServices
+/// stops them all the same (it used to stop only an Initialized one).
+#[test]
+fn halt_stops_queues_a_failed_initialize_left_running() {
+    let (mut d, mut s) = snp();
+    s.start::<&str>().unwrap();
+    d.fail_link = true;
+    d.reset_delay_after_link = 5000;
+    assert!(s.initialize(&mut d).is_err());
+    assert_eq!(s.state, State::Started);
+    assert!(s.net.running, "the reset did not take: DMA may go on");
+    d.fail_link = false;
+    d.reset_delay = 0;
+    s.halt(&mut d).unwrap();
+    assert_eq!(d.status, 0, "halt reset the device");
+    assert!(!s.net.running);
+    assert_eq!(s.state, State::Stopped);
+}
+
+fn hold_and_fill(s: &mut Snp, d: &mut Dev, first_token: usize) -> usize {
+    d.hold_tx = true;
+    let mut n = 0;
+    while s.transmit(d, 0, &mut frame(OTHER, 1, 60), None, None, None, first_token + n).is_ok() { n += 1; }
+    n
+}
+
+/// Finding fb205131ab41: a queue restart drops the transmit recycle state,
+/// so GetStatus never hands back a buffer of the previous queues and
+/// repeated restarts never fill the recycle list.
+#[test]
+fn restarting_the_queues_forgets_the_transmits() {
+    let (mut d, mut s) = up();
+    for round in 0..4 {
+        let n = hold_and_fill(&mut s, &mut d, 1000 * (round + 1));
+        assert!(n > 0, "round {round}: transmit works after a reset");
+        assert_eq!(s.recycle_pending(), n);
+        s.reset(&mut d).unwrap();
+        assert_eq!(s.recycle_pending(), 0);
+        assert_eq!(s.get_status(&mut d, true).unwrap(), (0, None),
+            "no TRANSMIT bit and no buffer from the old queues");
+    }
+    // Shutdown and Initialize too.
+    hold_and_fill(&mut s, &mut d, 1);
+    s.shutdown(&mut d).unwrap();
+    assert_eq!(s.recycle_pending(), 0);
+    s.initialize(&mut d).unwrap();
+    assert_eq!(s.get_status(&mut d, true).unwrap(), (0, None));
+    hold_and_fill(&mut s, &mut d, 1);
+    s.initialize(&mut d).unwrap();
+    assert_eq!(s.recycle_pending(), 0);
+    // A frame sent on the new queues comes back as before.
+    d.hold_tx = false;
+    s.transmit(&mut d, 0, &mut frame(OTHER, 1, 60), None, None, None, 77).unwrap();
+    assert_eq!(s.get_status(&mut d, true).unwrap(), (snp::TRANSMIT_INTERRUPT, Some(77)));
+}
+
 #[test]
 fn multicast_ip_to_mac_per_rfc_1112_and_2464() {
     let mut v4 = [0u8; 16];

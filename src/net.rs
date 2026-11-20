@@ -65,7 +65,7 @@ pub struct Net {
     /// Transmit descriptors not given to the device, as a stack.
     free: [u16; queue::MAX as usize],
     nfree: usize,
-    /// Queues running (between `start` and `stop`).
+    /// The device may be doing DMA: from `start` until a reset that took.
     pub running: bool,
 }
 
@@ -101,11 +101,12 @@ impl Net {
     pub fn start<B: Bus>(&mut self, b: &mut B, multiplier: u32) -> R<(), B::Error> {
         self.running = false;
         let r = self.bring_up(b, multiplier);
-        if r.is_err() {
-            let _ = super::reset(b);
-        } else {
-            self.running = true;
-        }
+        // On Err the device is reset again; if even that fails it may still
+        // run, so `running` stays set for the caller to stop it later.
+        self.running = match r {
+            Ok(()) => true,
+            Err(_) => super::reset(b).is_err(),
+        };
         r
     }
 
@@ -133,18 +134,20 @@ impl Net {
     /// Stop DMA: let queued frames go (up to 100 ms), then reset the device.
     /// Returns the frames left unsent.
     pub fn stop<B: Bus>(&mut self, b: &mut B) -> R<usize, B::Error> {
-        let mut left = 0;
+        let mut left = Ok(0);
         if self.running {
-            left = self.tx_pending()?;
             for _ in 0..100 {
-                if left == 0 { break; }
+                left = self.tx_pending();
+                if !matches!(left, Ok(n) if n > 0) { break; }
                 b.delay_us(1000);
-                left = self.tx_pending()?;
             }
         }
-        self.running = false;
+        // The reset happens even when draining failed (a bad used element).
+        // Not running only once it took: a failed stop is tried again
+        // (ExitBootServices relies on it).
         super::reset(b)?;
-        Ok(left)
+        self.running = false;
+        left
     }
 
     pub fn link<B: Bus>(&self, b: &mut B) -> R<bool, B::Error> {

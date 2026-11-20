@@ -17,6 +17,11 @@
 //!
 //! Transmit copies the frame into a queue buffer, so the caller's buffer is
 //! free at once; it is queued for GetStatus to hand back, as the spec asks.
+//! Every stop or restart of the queues (Initialize, Reset, Shutdown, Stop,
+//! a failed start, ExitBootServices) drops the frames still queued and
+//! forgets the buffers not yet handed back (finding fb205131ab41): those
+//! buffers were copied at Transmit, so the caller owns them again, and
+//! GetStatus only ever hands back buffers of the queues now running.
 
 use super::net::{Net, MAX_FRAME, MIN_FRAME};
 use super::{Bus, Error};
@@ -157,7 +162,7 @@ impl Snp {
     pub fn initialize<B: Bus>(&mut self, b: &mut B) -> F<(), B::Error> {
         match self.state {
             State::Stopped => return Err(Fail::NotStarted),
-            State::Initialized => { self.net.stop(b)?; }
+            State::Initialized => self.stop_queues(b)?,
             State::Started => {}
         }
         self.setting = 0;
@@ -170,7 +175,7 @@ impl Snp {
     /// Reset: restart the queues, keeping the filters and station address.
     pub fn reset<B: Bus>(&mut self, b: &mut B) -> F<(), B::Error> {
         self.initialized()?;
-        self.net.stop(b)?;
+        self.stop_queues(b)?;
         self.run(b)
     }
 
@@ -178,21 +183,53 @@ impl Snp {
     /// reset); initialized to started.
     pub fn shutdown<B: Bus>(&mut self, b: &mut B) -> F<(), B::Error> {
         self.initialized()?;
-        self.net.stop(b)?;
+        self.stop_queues(b)?;
         self.state = State::Started;
         Ok(())
     }
 
+    /// Stop the queues (`Net::stop`) and drop the transmit recycle state
+    /// with them, whether or not the device reset (finding fb205131ab41).
+    fn stop_queues<B: Bus>(&mut self, b: &mut B) -> Result<(), Error<B::Error>> {
+        let r = self.net.stop(b).map(|_| ());
+        self.forget_transmits();
+        r
+    }
+
+    /// The queues are gone: no transmitted buffer is handed back any more.
+    fn forget_transmits(&mut self) {
+        self.head = 0;
+        self.queued = 0;
+        self.transmitted = false;
+    }
+
     /// Start the queues (a full device initialization) and read the link.
+    /// On any failure the device is reset before returning, so no queue
+    /// runs on an interface left Started (finding bfb66e991e00).
     fn run<B: Bus>(&mut self, b: &mut B) -> F<(), B::Error> {
+        self.forget_transmits();
         if let Err(e) = self.net.start(b, self.multiplier) {
             // `start` reset the device again; nothing runs.
             self.state = State::Started;
             return Err(e.into());
         }
-        self.media = self.net.link(b)?;
-        Ok(())
+        match self.net.link(b) {
+            Ok(up) => {
+                self.media = up;
+                Ok(())
+            }
+            Err(e) => {
+                // The queues run: stop them. A failed stop leaves
+                // `net.running` set, and `halt` tries again at exit.
+                let _ = self.stop_queues(b);
+                self.state = State::Started;
+                Err(e.into())
+            }
+        }
     }
+
+    /// Transmitted buffers waiting for GetStatus.
+    pub fn recycle_pending(&self) -> usize { self.queued }
 
     /// ReceiveFilters: new setting = (setting | enable) & !disable. With
     /// `reset_mcast` the list is emptied; otherwise a non-empty `list`
@@ -317,8 +354,16 @@ impl Snp {
     }
 
     /// ExitBootServices: stop DMA whatever the state; the OS owns memory next.
+    /// Running queues are judged by `net.running`, not the SNP state, so
+    /// queues a failed Initialize or Reset left running are stopped too
+    /// (finding bfb66e991e00).
     pub fn halt<B: Bus>(&mut self, b: &mut B) -> Result<(), Error<B::Error>> {
-        let r = if self.state == State::Initialized { self.net.stop(b).map(|_| ()) } else { Ok(()) };
+        let r = if self.net.running || self.state == State::Initialized {
+            self.stop_queues(b)
+        } else {
+            self.forget_transmits();
+            Ok(())
+        };
         self.state = State::Stopped;
         r
     }

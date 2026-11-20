@@ -68,6 +68,10 @@ pub struct Dev {
     /// Bump config_generation once during the next MAC read.
     pub change_during_read: bool,
     pub fail_io: bool,
+    /// Fail every read of the link status (net_status)...
+    pub fail_link: bool,
+    /// ...and from that read on, take this many status reads to reset.
+    pub reset_delay_after_link: usize,
 }
 
 impl Dev {
@@ -83,7 +87,7 @@ impl Dev {
             q: [q.clone(), q.clone(), q], mac: MAC, net_status: 1, speed: 0xffff_ffff, duplex: 0xff, generation: 0,
             reset_delay: 0, reject_features: false, ops: Vec::new(), wire: Vec::new(),
             loopback: false, dropped: 0, delays: 0, hold_tx: false, change_during_read: false,
-            fail_io: false,
+            fail_io: false, fail_link: false, reset_delay_after_link: 0,
         }
     }
 
@@ -195,7 +199,13 @@ impl Bus for Dev {
                 if self.change_during_read && o == 3 { self.change_during_read = false; self.generation += 1; }
                 self.mac[o as usize] as u32
             }
-            (Region::Device, 6, 2) => self.net_status as u32,
+            (Region::Device, 6, 2) => {
+                if self.fail_link {
+                    self.reset_delay = self.reset_delay_after_link;
+                    return Err("link");
+                }
+                self.net_status as u32
+            }
             (Region::Device, 12, 4) => self.speed,
             (Region::Device, 16, 1) => self.duplex as u32,
             other => panic!("unexpected read {other:?}"),
