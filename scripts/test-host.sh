@@ -5,6 +5,6 @@
 set -euo pipefail
 mkdir -p target
 for t in virtio net snp trace decode; do
-    rustc --edition=2021 --test "test/$t.rs" -o "target/$t-tests"
+    rustc --edition=2021 -D warnings --test "test/$t.rs" -o "target/$t-tests"
     "target/$t-tests"
 done

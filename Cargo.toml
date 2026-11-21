@@ -15,6 +15,10 @@ path = "src/main.rs"
 # (src/console.rs).
 verbose = []
 
+# A warning fails the build (stormcentral#193).
+[lints.rust]
+warnings = "deny"
+
 [dependencies]
 uefi = { version = "0.39", features = ["alloc", "global_allocator", "panic_handler", "logger"] }
 uefi-raw = "0.15"

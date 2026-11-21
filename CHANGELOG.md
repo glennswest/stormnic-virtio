@@ -4,6 +4,7 @@
 
 ### 2026-11-21
 - **fix:** the driver build warned `recycle_pending` is never used (a test-only accessor from #9): now `#[cfg(test)]`, so check-driver builds with no warnings again
+- **build:** a warning now fails the build: `[lints.rust] warnings = "deny"` in the driver and check crates, `-D warnings` for the host tests (stormcentral#193)
 
 ### 2026-11-20
 - **fix:** speed and duplex are read from one configuration generation: `virtio::speed` reads `config_generation` before and after both fields and reads them again when it changed, so the port line can no longer show a pair the device never had (finding 8f5095bd0c86, #10). Host test in `test/virtio.rs` (a change between the two reads)
