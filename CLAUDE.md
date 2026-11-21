@@ -123,7 +123,9 @@ SC_BUILD_OUT=target/check.img SC_BUILD_OUT_TO=tmp/check.img sc-build scripts/bui
       `Net::running`, which stays set until a reset takes). Host tests
       `test/snp.rs` (3 new). Check: sc-build test-host, check-driver,
       test-ovmf. v0.2.3.
-- [ ] #10 minor 8f5095bd0c86 (virtio.rs:367): `virtio::speed` reads speed
-      and duplex inside one config_generation (retry, as `mac`); host test
-      `test/virtio.rs` with a change between the reads. Check: sc-build
-      test-host, check-driver, test-ovmf.
+- [x] #10 minor 8f5095bd0c86 (virtio.rs:367): `virtio::speed` reads speed
+      and duplex inside one config_generation (retry, as `mac`; 6ca166b);
+      host test `test/virtio.rs` with a change between the reads. Warnings
+      now fail the build (05f4648). At 05f4648: host tests 74 pass,
+      check-driver 56,832 B, subsystem 11, no warnings; test-ovmf 4 boots
+      PASS, `speed 10000 Mb/s full duplex` with QEMU `speed=` (2026-11-21).

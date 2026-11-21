@@ -3,6 +3,7 @@
 ## [Unreleased]
 
 ### 2026-11-21
+- **docs:** work plan: #10 done (host tests 74, check-driver no warnings, test-ovmf 4 boots at 05f4648)
 - **fix:** the driver build warned `recycle_pending` is never used (a test-only accessor from #9): now `#[cfg(test)]`, so check-driver builds with no warnings again
 - **build:** a warning now fails the build: `[lints.rust] warnings = "deny"` in the driver and check crates, `-D warnings` for the host tests (stormcentral#193)
 
