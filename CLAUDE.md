@@ -123,4 +123,7 @@ SC_BUILD_OUT=target/check.img SC_BUILD_OUT_TO=tmp/check.img sc-build scripts/bui
       `Net::running`, which stays set until a reset takes). Host tests
       `test/snp.rs` (3 new). Check: sc-build test-host, check-driver,
       test-ovmf. v0.2.3.
-- [ ] Next: minor 8f5095bd0c86 (virtio.rs:367, config generation).
+- [ ] #10 minor 8f5095bd0c86 (virtio.rs:367): `virtio::speed` reads speed
+      and duplex inside one config_generation (retry, as `mac`); host test
+      `test/virtio.rs` with a change between the reads. Check: sc-build
+      test-host, check-driver, test-ovmf.

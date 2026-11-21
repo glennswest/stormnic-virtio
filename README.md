@@ -88,7 +88,9 @@ stormnic-virtio 0.2.0: 0000:00:03.0 1af4:1041 virtio-net (modern) port 0: MAC 52
 - **Media** is `virtual`: a virtio-net function has no PHY or module.
 - **Speed and duplex** are the device's own (`VIRTIO_NET_F_SPEED_DUPLEX`,
   QEMU's `speed=` / `duplex=`); `speed unknown` when the device does not
-  offer the feature or reports 0xffffffff (QEMU's default).
+  offer the feature or reports 0xffffffff (QEMU's default). Both are read
+  from one configuration generation, as the MAC is (read again when
+  `config_generation` changes between them).
 - **FEC**: the driver applies the standard FEC for the port's media and
   speed itself (`virtio::standard_fec`); nothing is handed down by the
   loader. A virtual port has nothing IEEE 802.3 gives a FEC to, and the

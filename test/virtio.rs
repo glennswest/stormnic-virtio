@@ -211,6 +211,20 @@ fn the_mac_is_read_again_when_the_config_generation_changes() {
 }
 
 #[test]
+fn speed_and_duplex_are_read_again_when_the_config_generation_changes() {
+    let mut d = Dev::new();
+    d.offered |= 1 << 63;
+    d.speed = 1000;
+    d.duplex = 0;
+    // The device goes from 1000 half to 10000 full between the speed read
+    // and the duplex read: one pass alone would say 1000 full.
+    d.speed_change = Some((10_000, 1));
+    let id = virtio::identify(&mut d).unwrap();
+    assert_eq!(id.speed, Speed { mbps: Some(10_000), duplex: Some(Duplex::Full) });
+    assert_eq!(d.generation, 1);
+}
+
+#[test]
 fn an_io_failure_is_reported() {
     let mut d = Dev::new();
     d.fail_io = true;

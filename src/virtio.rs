@@ -364,8 +364,19 @@ pub fn speed<B: Bus>(b: &mut B, features: u64) -> R<Speed, B::Error> {
     if features & F_NET_SPEED_DUPLEX == 0 {
         return Ok(Speed { mbps: None, duplex: None });
     }
-    let mbps = read32(b, Region::Device, NET_SPEED)?;
-    let duplex = match read8(b, Region::Device, NET_DUPLEX)? {
+    // Both fields from one configuration generation (spec 4.1.4.3.1): reads
+    // of several fields are not atomic, and a device that changes them
+    // between the two reads would give a pair it never had.
+    let (mut mbps, mut duplex) = (0, 0);
+    for _ in 0..4 {
+        let before = read8(b, Region::Common, CONFIG_GENERATION)?;
+        mbps = read32(b, Region::Device, NET_SPEED)?;
+        duplex = read8(b, Region::Device, NET_DUPLEX)?;
+        if read8(b, Region::Common, CONFIG_GENERATION)? == before {
+            break;
+        }
+    }
+    let duplex = match duplex {
         0 => Some(Duplex::Half),
         1 => Some(Duplex::Full),
         _ => None,

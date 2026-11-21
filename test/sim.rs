@@ -67,6 +67,9 @@ pub struct Dev {
     pub hold_tx: bool,
     /// Bump config_generation once during the next MAC read.
     pub change_during_read: bool,
+    /// At the next speed read: answer the old speed, then take this speed
+    /// and duplex and bump config_generation (a change between the reads).
+    pub speed_change: Option<(u32, u8)>,
     pub fail_io: bool,
     /// Fail every read of the link status (net_status)...
     pub fail_link: bool,
@@ -86,7 +89,7 @@ impl Dev {
             status: 0, offered: OFFERED, dfsel: 0, gfsel: 0, driver_features: 0, qsel: 0,
             q: [q.clone(), q.clone(), q], mac: MAC, net_status: 1, speed: 0xffff_ffff, duplex: 0xff, generation: 0,
             reset_delay: 0, reject_features: false, ops: Vec::new(), wire: Vec::new(),
-            loopback: false, dropped: 0, delays: 0, hold_tx: false, change_during_read: false,
+            loopback: false, dropped: 0, delays: 0, hold_tx: false, change_during_read: false, speed_change: None,
             fail_io: false, fail_link: false, reset_delay_after_link: 0,
         }
     }
@@ -206,7 +209,15 @@ impl Bus for Dev {
                 }
                 self.net_status as u32
             }
-            (Region::Device, 12, 4) => self.speed,
+            (Region::Device, 12, 4) => {
+                let old = self.speed;
+                if let Some((speed, duplex)) = self.speed_change.take() {
+                    self.speed = speed;
+                    self.duplex = duplex;
+                    self.generation += 1;
+                }
+                old
+            }
             (Region::Device, 16, 1) => self.duplex as u32,
             other => panic!("unexpected read {other:?}"),
         })
