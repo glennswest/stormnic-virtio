@@ -228,7 +228,9 @@ impl Snp {
         }
     }
 
-    /// Transmitted buffers waiting for GetStatus.
+    /// Transmitted buffers waiting for GetStatus (the host tests' view;
+    /// the driver never needs the count).
+    #[cfg(test)]
     pub fn recycle_pending(&self) -> usize { self.queued }
 
     /// ReceiveFilters: new setting = (setting | enable) & !disable. With

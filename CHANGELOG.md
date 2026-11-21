@@ -2,6 +2,9 @@
 
 ## [Unreleased]
 
+### 2026-11-21
+- **fix:** the driver build warned `recycle_pending` is never used (a test-only accessor from #9): now `#[cfg(test)]`, so check-driver builds with no warnings again
+
 ### 2026-11-20
 - **fix:** speed and duplex are read from one configuration generation: `virtio::speed` reads `config_generation` before and after both fields and reads them again when it changed, so the port line can no longer show a pair the device never had (finding 8f5095bd0c86, #10). Host test in `test/virtio.rs` (a change between the two reads)
 - **fix:** a failed link read after the queues start (Initialize, Reset) left them running on an interface left Started, and ExitBootServices stopped only an Initialized one: `run` now resets the device on that failure, `Net::running` stays set until a reset takes (and `Net::stop` resets even when draining fails), and `halt` stops whatever runs (finding bfb66e991e00, #9). Host tests in `test/snp.rs`
